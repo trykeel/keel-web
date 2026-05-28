@@ -163,8 +163,8 @@ function Nav() {
           <Link href="https://github.com/trykeel" className="hidden md:flex items-center gap-1.5 text-[13px] text-zinc-400 hover:text-white transition-colors tracking-tight">
             <Github size={14} />GitHub
           </Link>
-          <Link href="/sign-in" className="text-[13px] text-zinc-400 hover:text-white transition-colors hidden md:block tracking-tight">Sign in</Link>
-          <Link href="/sign-up" className="text-[13px] bg-white text-black font-semibold px-4 py-1.5 rounded-full hover:bg-zinc-100 transition-colors tracking-tight">
+          <Link href="/login" className="text-[13px] text-zinc-400 hover:text-white transition-colors hidden md:block tracking-tight">Sign in</Link>
+          <Link href="/signup" className="text-[13px] bg-white text-black font-semibold px-4 py-1.5 rounded-full hover:bg-zinc-100 transition-colors tracking-tight">
             Get started →
           </Link>
         </div>
@@ -200,6 +200,7 @@ function Hero() {
 
         {/* editorial headline */}
         <h1 className="text-center mb-10">
+          {['Flaky tests', null, null].map((_, i) => null)}
           <motion.span
             initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.06, ease: [0.21, 0.47, 0.32, 0.98] }}
@@ -246,7 +247,7 @@ function Hero() {
           initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.5 }}
           className="flex items-center justify-center gap-3 flex-wrap mt-12"
         >
-          <Link href="/sign-up" className="group inline-flex items-center gap-2 bg-white text-black font-semibold px-7 py-3 rounded-full text-[14px] hover:bg-zinc-100 transition-all hover:gap-3">
+          <Link href="/signup" className="group inline-flex items-center gap-2 bg-white text-black font-semibold px-7 py-3 rounded-full text-[14px] hover:bg-zinc-100 transition-all hover:gap-3">
             Start free <ArrowRight size={14} />
           </Link>
           <Link href="https://github.com/trykeel/keel-action" className="inline-flex items-center gap-2 text-white font-medium px-7 py-3 rounded-full text-[14px] hover:bg-white/[0.06] transition-colors border border-white/[0.1]">
@@ -617,8 +618,8 @@ function StatsWall() {
 
 /* ─────────────────────── how it works ─────────────────────── */
 const STEPS = [
-  { n: '01', title: 'Add one step',             desc: 'Paste one block into your GitHub Actions workflow. Works with Jest, pytest, RSpec, Go test — any runner.', accent: 'sans' },
-  { n: '02', title: 'Keel watches',             desc: 'Every result is stored. Keel scores flakiness across commits — flagging tests that pass on one run but fail on another with the same code.', accent: 'serif' },
+  { n: '01', title: 'Add one step',           desc: 'Paste one block into your GitHub Actions workflow. Works with Jest, pytest, RSpec, Go test — any runner.', accent: 'sans' },
+  { n: '02', title: 'Keel watches',           desc: 'Every result is stored. Keel scores flakiness across commits — flagging tests that pass on one run but fail on another with the same code.', accent: 'serif' },
   { n: '03', title: 'AI explains. Keel fixes.', desc: 'Plain-English root cause. Keel opens a quarantine PR so deploys keep moving while your team fixes it.', accent: 'sans' },
 ]
 
@@ -668,6 +669,7 @@ function FeaturesBento() {
         </FadeUp>
 
         <div className="grid grid-cols-1 sm:grid-cols-6 gap-4">
+          {/* AI analysis — wide */}
           <FadeUp className="sm:col-span-4">
             <div className="bg-[#0a0a0e] border border-white/[0.06] rounded-2xl p-8 h-full overflow-hidden relative">
               <div className="absolute -right-12 -top-12 w-64 h-64 rounded-full"
@@ -684,7 +686,8 @@ function FeaturesBento() {
                 <div className="rounded-xl bg-black/40 border border-white/[0.06] p-4 font-mono text-[12px] leading-relaxed">
                   <div className="text-zinc-600 mb-1.5"># claude on UserAuth › login with SSO</div>
                   <div className="text-zinc-300">
-                    <span className="text-blue-300">→</span> race condition: cookie write races with redirect on slow CI runners
+                    <span className="text-blue-300">→</span> race condition: cookie write
+                    races with redirect on slow CI runners
                   </div>
                   <div className="text-zinc-300 mt-1">
                     <span className="text-blue-300">→</span> suggested fix: await{' '}
@@ -696,6 +699,7 @@ function FeaturesBento() {
             </div>
           </FadeUp>
 
+          {/* Cost estimator */}
           <FadeUp delay={0.05} className="sm:col-span-2">
             <div className="bg-[#0a0a0e] border border-white/[0.06] rounded-2xl p-8 h-full flex flex-col">
               <div className="inline-flex items-center gap-1.5 font-mono text-[10px] tracking-[0.18em] uppercase text-amber-300 mb-5">
@@ -713,6 +717,7 @@ function FeaturesBento() {
             </div>
           </FadeUp>
 
+          {/* Auto quarantine */}
           <FadeUp delay={0.1} className="sm:col-span-3">
             <div className="bg-[#0a0a0e] border border-white/[0.06] rounded-2xl p-8 h-full">
               <div className="inline-flex items-center gap-1.5 font-mono text-[10px] tracking-[0.18em] uppercase text-green-300 mb-5">
@@ -736,6 +741,7 @@ function FeaturesBento() {
             </div>
           </FadeUp>
 
+          {/* 2-min setup */}
           <FadeUp delay={0.15} className="sm:col-span-3">
             <div className="bg-[#0a0a0e] border border-white/[0.06] rounded-2xl p-8 h-full">
               <div className="inline-flex items-center gap-1.5 font-mono text-[10px] tracking-[0.18em] uppercase text-zinc-300 mb-5">
@@ -809,10 +815,10 @@ function Comparison() {
 const PLANS = [
   { name: 'Starter', price: '0', period: '/mo', desc: 'Solo devs and small projects.', highlight: false,
     features: ['1 repo', 'Up to 500 tests', '14-day history', 'Flakiness dashboard', 'Email alerts'],
-    cta: 'Start free', href: '/sign-up' },
+    cta: 'Start free', href: '/signup' },
   { name: 'Team', price: '199', period: '/mo', desc: 'Eliminate flakes across your team.', highlight: true,
     features: ['20 repos', 'Unlimited tests', '90-day history', 'AI root cause', 'Auto-quarantine PR', 'Cost estimator', 'Slack digest'],
-    cta: 'Start 14-day trial', href: '/sign-up' },
+    cta: 'Start 14-day trial', href: '/signup' },
   { name: 'Enterprise', price: '∞', period: '', desc: 'Large orgs, compliance needs.', highlight: false,
     features: ['Unlimited repos', 'SSO + audit logs', 'SOC2 Type II', 'SLA 99.9%', 'Dedicated support', 'Custom integrations'],
     cta: 'Talk to us', href: 'mailto:hi@trykeel.com' },
@@ -868,6 +874,11 @@ function Pricing() {
             </FadeUp>
           ))}
         </div>
+        <FadeUp className="text-center mt-10">
+          <Link href="/calculator" className="inline-flex items-center gap-2 font-mono text-[12px] tracking-wide text-blue-400 hover:text-blue-300 transition-colors">
+            ▸ calculate your flaky test cost
+          </Link>
+        </FadeUp>
       </div>
     </section>
   )
@@ -896,7 +907,7 @@ function FinalCTA() {
           Install Keel in 2 minutes and see which tests are bleeding your team — for free.
         </p>
         <div className="flex items-center justify-center gap-4 flex-wrap">
-          <Link href="/sign-up" className="inline-flex items-center gap-2 bg-white text-black font-semibold px-8 py-3.5 rounded-full hover:bg-zinc-100 transition-colors text-[14px]">
+          <Link href="/signup" className="inline-flex items-center gap-2 bg-white text-black font-semibold px-8 py-3.5 rounded-full hover:bg-zinc-100 transition-colors text-[14px]">
             Start free <ArrowRight size={15} />
           </Link>
           <Link href="mailto:hi@trykeel.com" className="text-[14px] text-zinc-400 hover:text-white transition-colors">
@@ -924,7 +935,7 @@ function Footer() {
             </p>
           </div>
           {([
-            ['Product',   [['How it works','#how'],['Pricing','#pricing'],['Dashboard','/dashboard']]],
+            ['Product',   [['How it works','#how'],['Pricing','#pricing'],['Dashboard','/dashboard'],['Calculator','/calculator']]],
             ['Resources', [['Documentation','#'],['Changelog','#'],['Blog','#']]],
             ['Company',   [['GitHub','https://github.com/trykeel'],['Contact','mailto:hi@trykeel.com'],['Privacy','/privacy']]],
           ] as const).map(([title, links]) => (
