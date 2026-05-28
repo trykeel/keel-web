@@ -19,6 +19,10 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!localStorage.getItem('keelOrgId')) {
+      window.location.replace('/onboarding')
+      return
+    }
     const repoId = localStorage.getItem('keelRepoId') || 'demo'
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/repos/${repoId}/tests`)
       .then(r => r.json())
