@@ -163,8 +163,8 @@ function Nav() {
           <Link href="https://github.com/trykeel" className="hidden md:flex items-center gap-1.5 text-[13px] text-zinc-400 hover:text-white transition-colors tracking-tight">
             <Github size={14} />GitHub
           </Link>
-          <Link href="/login" className="text-[13px] text-zinc-400 hover:text-white transition-colors hidden md:block tracking-tight">Sign in</Link>
-          <Link href="/signup" className="text-[13px] bg-white text-black font-semibold px-4 py-1.5 rounded-full hover:bg-zinc-100 transition-colors tracking-tight">
+          <Link href="/sign-in" className="text-[13px] text-zinc-400 hover:text-white transition-colors hidden md:block tracking-tight">Sign in</Link>
+          <Link href="/sign-up" className="text-[13px] bg-white text-black font-semibold px-4 py-1.5 rounded-full hover:bg-zinc-100 transition-colors tracking-tight">
             Get started →
           </Link>
         </div>
@@ -247,7 +247,7 @@ function Hero() {
           initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.5 }}
           className="flex items-center justify-center gap-3 flex-wrap mt-12"
         >
-          <Link href="/signup" className="group inline-flex items-center gap-2 bg-white text-black font-semibold px-7 py-3 rounded-full text-[14px] hover:bg-zinc-100 transition-all hover:gap-3">
+          <Link href="/sign-up" className="group inline-flex items-center gap-2 bg-white text-black font-semibold px-7 py-3 rounded-full text-[14px] hover:bg-zinc-100 transition-all hover:gap-3">
             Start free <ArrowRight size={14} />
           </Link>
           <Link href="https://github.com/trykeel/keel-action" className="inline-flex items-center gap-2 text-white font-medium px-7 py-3 rounded-full text-[14px] hover:bg-white/[0.06] transition-colors border border-white/[0.1]">
@@ -815,10 +815,10 @@ function Comparison() {
 const PLANS = [
   { name: 'Starter', price: '0', period: '/mo', desc: 'Solo devs and small projects.', highlight: false,
     features: ['1 repo', 'Up to 500 tests', '14-day history', 'Flakiness dashboard', 'Email alerts'],
-    cta: 'Start free', href: '/signup' },
+    cta: 'Start free', href: '/sign-up' },
   { name: 'Team', price: '199', period: '/mo', desc: 'Eliminate flakes across your team.', highlight: true,
     features: ['20 repos', 'Unlimited tests', '90-day history', 'AI root cause', 'Auto-quarantine PR', 'Cost estimator', 'Slack digest'],
-    cta: 'Start 14-day trial', href: '/signup' },
+    cta: 'Start 14-day trial', href: '/sign-up' },
   { name: 'Enterprise', price: '∞', period: '', desc: 'Large orgs, compliance needs.', highlight: false,
     features: ['Unlimited repos', 'SSO + audit logs', 'SOC2 Type II', 'SLA 99.9%', 'Dedicated support', 'Custom integrations'],
     cta: 'Talk to us', href: 'mailto:hi@trykeel.com' },
@@ -907,7 +907,7 @@ function FinalCTA() {
           Install Keel in 2 minutes and see which tests are bleeding your team — for free.
         </p>
         <div className="flex items-center justify-center gap-4 flex-wrap">
-          <Link href="/signup" className="inline-flex items-center gap-2 bg-white text-black font-semibold px-8 py-3.5 rounded-full hover:bg-zinc-100 transition-colors text-[14px]">
+          <Link href="/sign-up" className="inline-flex items-center gap-2 bg-white text-black font-semibold px-8 py-3.5 rounded-full hover:bg-zinc-100 transition-colors text-[14px]">
             Start free <ArrowRight size={15} />
           </Link>
           <Link href="mailto:hi@trykeel.com" className="text-[14px] text-zinc-400 hover:text-white transition-colors">

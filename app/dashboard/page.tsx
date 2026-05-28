@@ -19,7 +19,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const repoId = localStorage.getItem('repoId') || 'demo'
+    const repoId = localStorage.getItem('keelRepoId') || 'demo'
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/repos/${repoId}/tests`)
       .then(r => r.json())
       .then(d => { setTests(d.tests || []); setLoading(false) })
@@ -176,7 +176,7 @@ export default function DashboardPage() {
                       {t.lastFailedAt ? new Date(t.lastFailedAt).toLocaleDateString() : '—'}
                     </td>
                     <td className="px-5 py-3.5">
-                      <Link href={`/tests/${encodeURIComponent(t.testName)}`}
+                      <Link href={`/dashboard/tests/${encodeURIComponent(t.testName)}`}
                         className="flex items-center gap-1 text-blue-400 text-xs hover:text-blue-300 transition-colors">
                         View <ChevronRight size={11} />
                       </Link>
