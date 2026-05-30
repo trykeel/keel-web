@@ -39,16 +39,6 @@ type OnboardResponse = {
   note: string
 }
 
-function decodeRepos(b64: string): GithubRepo[] {
-  try {
-    // URL-safe base64 → standard base64
-    const standard = b64.replace(/-/g, '+').replace(/_/g, '/')
-    const json = decodeURIComponent(escape(atob(standard)))
-    return JSON.parse(json)
-  } catch {
-    return []
-  }
-}
 
 function OnboardingInner() {
   const router = useRouter()
@@ -58,6 +48,7 @@ function OnboardingInner() {
   const [checking, setChecking] = useState(true)
   const [step, setStep] = useState<'connect' | 'repo' | 'branches' | 'submitting' | 'success' | 'already'>('connect')
   const [repos, setRepos] = useState<GithubRepo[]>([])
+  const [loadingRepos, setLoadingRepos] = useState(false)
   const [selectedRepo, setSelectedRepo] = useState<GithubRepo | null>(null)
   const [branches, setBranches] = useState<GithubBranch[]>([])
   const [selectedBranches, setSelectedBranches] = useState<string[]>([])
@@ -92,17 +83,19 @@ function OnboardingInner() {
     }
 
     const token = searchParams.get('gh_token')
-    const reposParam = searchParams.get('repos')
 
-    if (token && reposParam) {
-      const decoded = decodeRepos(reposParam)
-      if (decoded.length > 0) {
-        setGhToken(token)
-        setRepos(decoded)
-        setStep('repo')
-      } else {
-        setError('Could not parse repository list. Please try again.')
-      }
+    if (token) {
+      setGhToken(token)
+      setStep('repo')
+      setLoadingRepos(true)
+      fetch(`${API_URL}/api/github/repos?gh_token=${encodeURIComponent(token)}`)
+        .then(r => r.json())
+        .then(data => {
+          setRepos(Array.isArray(data.repos) ? data.repos : [])
+          if (!data.repos?.length) setError('No repositories found. Make sure you authorized the right GitHub account.')
+        })
+        .catch(() => setError('Could not load repositories. Please reconnect GitHub.'))
+        .finally(() => setLoadingRepos(false))
     }
 
     setChecking(false)
@@ -318,6 +311,12 @@ function OnboardingInner() {
             </div>
 
             <div className="bg-[#0a0a0e] border border-white/[0.08] rounded-2xl p-7 shadow-[0_30px_120px_-40px_rgba(59,130,246,0.4)]">
+              {loadingRepos ? (
+                <div className="flex items-center justify-center gap-2 py-10 text-zinc-600">
+                  <Loader2 size={16} className="animate-spin" />
+                  <span className="text-[13px]">Loading your repositories…</span>
+                </div>
+              ) : (<>
               {/* search */}
               <div className="relative mb-3">
                 <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600 pointer-events-none" />
@@ -360,6 +359,7 @@ function OnboardingInner() {
                   Reconnect GitHub
                 </button>
               </p>
+              </>)}
             </div>
           </>
         )}

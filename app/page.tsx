@@ -3,12 +3,13 @@
 import type { ReactNode } from 'react'
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
+import { useUser, useClerk } from '@clerk/nextjs'
 import { motion, AnimatePresence } from 'motion/react'
 import {
   Check, X, ChevronDown, ArrowRight,
   Zap, Brain, DollarSign, GitPullRequest, TrendingUp,
   BookOpen, ScrollText, Github, FileText, Users, Mail,
-  LayoutDashboard, Settings,
+  LayoutDashboard, Settings, LogOut,
 } from 'lucide-react'
 
 /* ─────────────────────── helpers ─────────────────────── */
@@ -141,11 +142,15 @@ function NavDropdown({ label, items }: { label: string; items: typeof NAV_MENUS[
 
 function Nav() {
   const [scrolled, setScrolled] = useState(false)
+  const { isSignedIn, isLoaded } = useUser()
+  const { signOut } = useClerk()
+
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12)
     window.addEventListener('scroll', onScroll)
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
+
   return (
     <nav className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${
       scrolled ? 'h-14 bg-black/70 backdrop-blur-xl border-b border-white/[0.06]' : 'h-16 bg-transparent border-b border-transparent'
@@ -163,10 +168,27 @@ function Nav() {
           <Link href="https://github.com/trykeel" className="hidden md:flex items-center gap-1.5 text-[13px] text-zinc-400 hover:text-white transition-colors tracking-tight">
             <Github size={14} />GitHub
           </Link>
-          <Link href="/sign-in" className="text-[13px] text-zinc-400 hover:text-white transition-colors tracking-tight">Sign in</Link>
-          <Link href="/sign-up" className="text-[13px] bg-white text-black font-semibold px-4 py-1.5 rounded-full hover:bg-zinc-100 transition-colors tracking-tight">
-            Get started →
-          </Link>
+
+          {isLoaded && isSignedIn ? (
+            <>
+              <Link href="/dashboard" className="text-[13px] text-zinc-400 hover:text-white transition-colors tracking-tight">
+                Dashboard
+              </Link>
+              <button
+                onClick={() => signOut({ redirectUrl: '/' })}
+                className="flex items-center gap-1.5 text-[13px] text-zinc-400 hover:text-white transition-colors tracking-tight"
+              >
+                <LogOut size={13} />Sign out
+              </button>
+            </>
+          ) : (
+            <>
+              <Link href="/sign-in" className="text-[13px] text-zinc-400 hover:text-white transition-colors tracking-tight">Sign in</Link>
+              <Link href="/sign-up" className="text-[13px] bg-white text-black font-semibold px-4 py-1.5 rounded-full hover:bg-zinc-100 transition-colors tracking-tight">
+                Get started →
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </nav>
