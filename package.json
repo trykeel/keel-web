@@ -11,7 +11,6 @@
   "dependencies": {
     "@clerk/nextjs": "^6.0.0",
     "@tanstack/react-query": "^5.64.2",
-    "@tremor/react": "^3.18.3",
     "clsx": "^2.1.1",
     "lucide-react": "^0.475.0",
     "motion": "^12.40.0",
