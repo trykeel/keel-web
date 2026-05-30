@@ -56,7 +56,7 @@ function OnboardingInner() {
   const { user, isLoaded } = useUser()
 
   const [checking, setChecking] = useState(true)
-  const [step, setStep] = useState<'connect' | 'repo' | 'branches' | 'submitting' | 'success'>('connect')
+  const [step, setStep] = useState<'connect' | 'repo' | 'branches' | 'submitting' | 'success' | 'already'>('connect')
   const [repos, setRepos] = useState<GithubRepo[]>([])
   const [selectedRepo, setSelectedRepo] = useState<GithubRepo | null>(null)
   const [branches, setBranches] = useState<GithubBranch[]>([])
@@ -73,7 +73,8 @@ function OnboardingInner() {
 
   useEffect(() => {
     if (localStorage.getItem('keelOrgId')) {
-      router.replace('/dashboard')
+      setStep('already')
+      setChecking(false)
       return
     }
 
@@ -225,6 +226,46 @@ function OnboardingInner() {
 
       <div className="relative w-full max-w-[480px]">
 
+        {/* ── STEP: ALREADY CONNECTED ── */}
+        {step === 'already' && (
+          <>
+            <div className="text-center mb-9">
+              <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-blue-500/[0.12] border border-blue-500/25 mb-6">
+                <CheckCircle2 size={26} className="text-blue-400" />
+              </div>
+              <h1 className="text-[36px] font-black tracking-[-0.04em] leading-[1] mb-3">
+                Already <span className="serif-italic font-normal text-blue-400">connected.</span>
+              </h1>
+              <p className="text-[14px] text-zinc-500 leading-relaxed max-w-sm mx-auto">
+                You have a workspace set up for{' '}
+                <span className="font-mono text-zinc-300">
+                  {localStorage.getItem('keelOrgName') || 'your org'}/{localStorage.getItem('keelRepoName') || 'your repo'}
+                </span>.
+              </p>
+            </div>
+            <div className="bg-[#0a0a0e] border border-white/[0.08] rounded-2xl p-7 flex flex-col gap-4 shadow-[0_30px_120px_-40px_rgba(59,130,246,0.4)]">
+              <button
+                onClick={() => router.push('/dashboard')}
+                className="flex items-center justify-center gap-2 py-3 rounded-xl bg-white text-black text-[14px] font-semibold hover:bg-zinc-100 transition-colors"
+              >
+                Go to dashboard <ArrowRight size={14} />
+              </button>
+              <button
+                onClick={() => {
+                  localStorage.removeItem('keelOrgId')
+                  localStorage.removeItem('keelRepoId')
+                  localStorage.removeItem('keelOrgName')
+                  localStorage.removeItem('keelRepoName')
+                  setStep('connect')
+                }}
+                className="flex items-center justify-center gap-2 py-3 rounded-xl border border-white/[0.08] text-[13px] text-zinc-400 hover:bg-white/[0.04] transition-colors"
+              >
+                Connect a different repo
+              </button>
+            </div>
+          </>
+        )}
+
         {/* ── STEP: CONNECT ── */}
         {(step === 'connect') && (
           <>
@@ -353,8 +394,15 @@ function OnboardingInner() {
 
                   <div className="flex items-center justify-between text-[11px] text-zinc-600 font-mono -mt-1">
                     <span>{selectedBranches.length}/{branchLimit} branch selected</span>
-                    <span className="text-zinc-700">Starter plan · <span className="text-zinc-500">upgrade for more</span></span>
+                    <Link href="#pricing" className="text-blue-400 hover:text-blue-300 transition-colors">
+                      Starter plan · upgrade for more →
+                    </Link>
                   </div>
+                  {selectedBranches.length >= branchLimit && (
+                    <p className="text-[12px] text-zinc-600 bg-white/[0.02] border border-white/[0.06] rounded-xl px-4 py-2.5">
+                      Starter allows <span className="text-zinc-400">1 watched branch</span>. Upgrade to Team to score up to 3 branches.
+                    </p>
+                  )}
 
                   {error && (
                     <div className="flex items-start gap-2 bg-red-500/[0.08] border border-red-500/20 rounded-xl px-4 py-3 text-[13px] text-red-300">
