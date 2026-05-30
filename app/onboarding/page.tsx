@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useUser } from '@clerk/nextjs'
 import {
   Check, Copy, ArrowRight, Loader2, KeyRound,
-  CheckCircle2, Github, AlertCircle, GitBranch, Lock,
+  CheckCircle2, Github, AlertCircle, GitBranch, Lock, Search,
 } from 'lucide-react'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
@@ -67,6 +67,7 @@ function OnboardingInner() {
   const [result, setResult] = useState<OnboardResponse | null>(null)
   const [copied, setCopied] = useState<'key' | 'yaml' | null>(null)
   const [connecting, setConnecting] = useState(false)
+  const [repoSearch, setRepoSearch] = useState('')
 
   // Plan limit — starter = 1 branch, team = 3
   const branchLimit = 1
@@ -317,8 +318,24 @@ function OnboardingInner() {
             </div>
 
             <div className="bg-[#0a0a0e] border border-white/[0.08] rounded-2xl p-7 shadow-[0_30px_120px_-40px_rgba(59,130,246,0.4)]">
-              <div className="flex flex-col gap-2 max-h-[340px] overflow-y-auto pr-1 -mr-1">
-                {repos.map(repo => (
+              {/* search */}
+              <div className="relative mb-3">
+                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Search repos…"
+                  value={repoSearch}
+                  onChange={e => setRepoSearch(e.target.value)}
+                  className="w-full bg-[#0c0c12] border border-white/[0.08] rounded-xl pl-9 pr-4 py-2.5 text-[13px] text-zinc-200 placeholder-zinc-600 outline-none focus:border-blue-500/40 transition-colors"
+                />
+              </div>
+              <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-1 -mr-1">
+                {repos.filter(r => r.fullName.toLowerCase().includes(repoSearch.toLowerCase())).length === 0 && (
+                  <div className="text-center py-8 text-[13px] text-zinc-600">
+                    No repos found for &ldquo;{repoSearch}&rdquo;
+                  </div>
+                )}
+                {repos.filter(r => r.fullName.toLowerCase().includes(repoSearch.toLowerCase())).map(repo => (
                   <button
                     key={repo.id}
                     onClick={() => handleRepoSelect(repo)}
@@ -334,6 +351,15 @@ function OnboardingInner() {
                   </button>
                 ))}
               </div>
+              <p className="text-[11px] text-zinc-700 mt-3 text-center">
+                {repos.length} repos loaded · Don&apos;t see yours?{' '}
+                <button
+                  onClick={handleConnectGitHub}
+                  className="text-zinc-500 hover:text-zinc-300 transition-colors underline underline-offset-2"
+                >
+                  Reconnect GitHub
+                </button>
+              </p>
             </div>
           </>
         )}
