@@ -163,7 +163,7 @@ function Nav() {
           <Link href="https://github.com/trykeel" className="hidden md:flex items-center gap-1.5 text-[13px] text-zinc-400 hover:text-white transition-colors tracking-tight">
             <Github size={14} />GitHub
           </Link>
-          <Link href="/sign-in" className="text-[13px] text-zinc-400 hover:text-white transition-colors hidden md:block tracking-tight">Sign in</Link>
+          <Link href="/sign-in" className="text-[13px] text-zinc-400 hover:text-white transition-colors tracking-tight">Sign in</Link>
           <Link href="/sign-up" className="text-[13px] bg-white text-black font-semibold px-4 py-1.5 rounded-full hover:bg-zinc-100 transition-colors tracking-tight">
             Get started →
           </Link>
@@ -569,8 +569,8 @@ function DashboardPreview() {
         </FadeUp>
 
         <div className="text-center mt-10">
-          <Link href="/dashboard" className="inline-flex items-center gap-2 text-[13px] font-mono tracking-wide text-blue-400 hover:text-blue-300 transition-colors">
-            ▸ open the live dashboard
+          <Link href="/sign-up" className="inline-flex items-center gap-2 text-[13px] font-mono tracking-wide text-blue-400 hover:text-blue-300 transition-colors">
+            ▸ get started free
           </Link>
         </div>
       </div>

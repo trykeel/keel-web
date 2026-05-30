@@ -184,6 +184,8 @@ function OnboardingInner() {
 
       localStorage.setItem('keelOrgId', data.orgId)
       localStorage.setItem('keelRepoId', data.repoId)
+      localStorage.setItem('keelOrgName', selectedRepo.ownerLogin)
+      localStorage.setItem('keelRepoName', selectedRepo.name)
       setResult(data)
       setStep('success')
     } catch (err) {

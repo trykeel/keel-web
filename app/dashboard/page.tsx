@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
+import { useClerk, useUser } from '@clerk/nextjs'
 import {
   LayoutDashboard, TrendingUp, DollarSign, Settings, Key,
   ChevronsLeft, ChevronDown, ChevronRight, LogOut, Search,
@@ -108,21 +109,29 @@ function Sidebar() {
   )
 }
 
-function TopBar() {
+function TopBar({ orgName, repoName }: { orgName: string; repoName: string }) {
+  const { signOut } = useClerk()
+  const { user } = useUser()
   return (
     <div className="h-16 shrink-0 border-b border-white/[0.06] flex items-center justify-between px-7 bg-[#08080b]">
       <div />
       <div className="flex items-center gap-2 font-mono text-[12px] bg-[#101016] border border-white/[0.08] rounded-lg px-3.5 py-1.5">
-        <span className="text-zinc-400">acme-corp</span>
+        <span className="text-zinc-400">{orgName}</span>
         <span className="text-zinc-700">/</span>
-        <span className="text-white font-medium">backend</span>
+        <span className="text-white font-medium">{repoName}</span>
         <ChevronDown size={12} className="text-zinc-600 ml-1" />
       </div>
       <div className="flex items-center gap-4">
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500" />
-        <Link href="/" className="flex items-center gap-1.5 font-mono text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors">
+        {user?.imageUrl
+          ? <img src={user.imageUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
+          : <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500" />
+        }
+        <button
+          onClick={() => signOut({ redirectUrl: '/' })}
+          className="flex items-center gap-1.5 font-mono text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors"
+        >
           <LogOut size={13} />Sign out
-        </Link>
+        </button>
       </div>
     </div>
   )
@@ -346,12 +355,16 @@ function StabilityTrends() {
 export default function DashboardPage() {
   const [tests, setTests] = useState<TestRow[]>([])
   const [query, setQuery] = useState('')
+  const [orgName, setOrgName] = useState('')
+  const [repoName, setRepoName] = useState('')
 
   useEffect(() => {
     if (!localStorage.getItem('keelOrgId')) {
       window.location.replace('/onboarding')
       return
     }
+    setOrgName(localStorage.getItem('keelOrgName') || 'your-org')
+    setRepoName(localStorage.getItem('keelRepoName') || 'your-repo')
     const repoId = localStorage.getItem('keelRepoId')
     let cancelled = false
     async function load() {
@@ -372,7 +385,7 @@ export default function DashboardPage() {
     <div className="flex h-screen overflow-hidden bg-[#08080b] text-white">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <TopBar />
+        <TopBar orgName={orgName} repoName={repoName} />
         <div className="flex-1 overflow-y-auto px-7 py-6">
           <div className="max-w-[1180px] mx-auto flex flex-col gap-5">
             <Tabs />
