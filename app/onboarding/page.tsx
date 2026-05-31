@@ -91,10 +91,17 @@ function OnboardingInner() {
       fetch(`${API_URL}/api/github/repos?gh_token=${encodeURIComponent(token)}`)
         .then(r => r.json())
         .then(data => {
-          setRepos(Array.isArray(data.repos) ? data.repos : [])
-          if (!data.repos?.length) setError('No repositories found. Make sure you authorized the right GitHub account.')
+          if (data.error) {
+            setError('GitHub authorization failed — make sure you created a GitHub OAuth App (not a GitHub App) and the Client ID/Secret on Render are correct.')
+            return
+          }
+          const list = Array.isArray(data.repos) ? data.repos : []
+          setRepos(list)
+          if (list.length === 0) {
+            setError('No repositories found. Your GitHub account may not have any repos, or the OAuth App may not have access. Try reconnecting.')
+          }
         })
-        .catch(() => setError('Could not load repositories. Please reconnect GitHub.'))
+        .catch(() => setError('Could not reach the Keel API. Check that the Render service is running.'))
         .finally(() => setLoadingRepos(false))
     }
 
