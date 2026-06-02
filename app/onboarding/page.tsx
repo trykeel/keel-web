@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { useUser } from '@clerk/nextjs'
+import { useUser, useAuth } from '@clerk/nextjs'
 import {
   Check, Copy, ArrowRight, Loader2, KeyRound,
   CheckCircle2, Github, AlertCircle, GitBranch, Lock, Search,
@@ -44,6 +44,7 @@ function OnboardingInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user, isLoaded } = useUser()
+  const { getToken } = useAuth()
 
   const [checking, setChecking] = useState(true)
   const [step, setStep] = useState<'connect' | 'repo' | 'branches' | 'submitting' | 'success' | 'already'>('connect')
@@ -52,7 +53,6 @@ function OnboardingInner() {
   const [selectedRepo, setSelectedRepo] = useState<GithubRepo | null>(null)
   const [branches, setBranches] = useState<GithubBranch[]>([])
   const [selectedBranches, setSelectedBranches] = useState<string[]>([])
-  const [ghToken, setGhToken] = useState('')
   const [loadingBranches, setLoadingBranches] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState<OnboardResponse | null>(null)
@@ -75,24 +75,29 @@ function OnboardingInner() {
       const messages: Record<string, string> = {
         no_code: 'GitHub authorization was cancelled.',
         auth_failed: 'GitHub authentication failed. Please try again.',
-        repos_failed: 'Could not fetch your repositories. Please try again.',
+        invalid_state: 'Authorization request expired or was invalid. Please try again.',
+        invalid_request: 'GitHub authorization was cancelled.',
+        server_error: 'Something went wrong on our end. Please try again.',
       }
       setError(messages[errorParam] || 'Something went wrong. Please try again.')
       setChecking(false)
       return
     }
 
-    const token = searchParams.get('gh_token')
-
-    if (token) {
-      setGhToken(token)
+    const connected = searchParams.get('github_connected')
+    if (connected === 'true') {
       setStep('repo')
       setLoadingRepos(true)
-      fetch(`${API_URL}/api/github/repos?gh_token=${encodeURIComponent(token)}`)
-        .then(r => r.json())
-        .then(data => {
+      const fetchRepos = async () => {
+        try {
+          const clerkToken = await getToken()
+          if (!clerkToken) { setError('Session expired — please refresh the page.'); return }
+          const res = await fetch(`${API_URL}/api/github/repos`, {
+            headers: { Authorization: `Bearer ${clerkToken}` },
+          })
+          const data = await res.json()
           if (data.error) {
-            setError('GitHub authorization failed — make sure you created a GitHub OAuth App (not a GitHub App) and the Client ID/Secret on Render are correct.')
+            setError('GitHub authorization failed — make sure you created a GitHub OAuth App (not a GitHub App) and the Client ID/Secret are correct.')
             return
           }
           const list = Array.isArray(data.repos) ? data.repos : []
@@ -100,19 +105,27 @@ function OnboardingInner() {
           if (list.length === 0) {
             setError('No repositories found. Your GitHub account may not have any repos, or the OAuth App may not have access. Try reconnecting.')
           }
-        })
-        .catch(() => setError('Could not reach the Keel API. Check that the Render service is running.'))
-        .finally(() => setLoadingRepos(false))
+        } catch {
+          setError('Could not reach the Keel API. Check that the server is running.')
+        } finally {
+          setLoadingRepos(false)
+        }
+      }
+      fetchRepos()
     }
 
     setChecking(false)
-  }, [router, searchParams])
+  }, [router, searchParams, getToken])
 
   const handleConnectGitHub = useCallback(async () => {
     setConnecting(true)
     setError('')
     try {
-      const res = await fetch(`${API_URL}/api/github/authorize`)
+      const clerkToken = await getToken()
+      if (!clerkToken) { setError('Session expired — please refresh the page.'); setConnecting(false); return }
+      const res = await fetch(`${API_URL}/api/github/authorize`, {
+        headers: { Authorization: `Bearer ${clerkToken}` },
+      })
       const data = await res.json()
       if (data.url) {
         window.location.href = data.url
@@ -124,7 +137,7 @@ function OnboardingInner() {
       setError('Could not reach Keel API. Please try again.')
       setConnecting(false)
     }
-  }, [])
+  }, [getToken])
 
   const handleRepoSelect = useCallback(async (repo: GithubRepo) => {
     setSelectedRepo(repo)
@@ -135,8 +148,11 @@ function OnboardingInner() {
 
     try {
       const [owner, repoName] = repo.fullName.split('/')
+      const clerkToken = await getToken()
+      if (!clerkToken) { setError('Session expired — please refresh the page.'); setLoadingBranches(false); return }
       const res = await fetch(
-        `${API_URL}/api/github/branches?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repoName)}&gh_token=${encodeURIComponent(ghToken)}`
+        `${API_URL}/api/github/branches?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repoName)}`,
+        { headers: { Authorization: `Bearer ${clerkToken}` } },
       )
       const data = await res.json()
       setBranches(data.branches || [])
@@ -146,7 +162,7 @@ function OnboardingInner() {
     } finally {
       setLoadingBranches(false)
     }
-  }, [ghToken])
+  }, [getToken])
 
   function toggleBranch(name: string) {
     setSelectedBranches(prev => {
@@ -165,11 +181,15 @@ function OnboardingInner() {
     setError('')
 
     try {
+      const clerkToken = await getToken()
+      if (!clerkToken) { setError('Session expired — please refresh the page.'); setStep('branches'); return }
       const res = await fetch(`${API_URL}/onboard`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${clerkToken}`,
+        },
         body: JSON.stringify({
-          clerkUserId: user.id,
           githubOrgId: selectedRepo.ownerId,
           githubOrgName: selectedRepo.ownerLogin,
           githubRepoId: selectedRepo.id,
@@ -177,7 +197,6 @@ function OnboardingInner() {
           repoFullName: selectedRepo.fullName,
           defaultBranch: selectedRepo.defaultBranch,
           watchedBranches: selectedBranches,
-          githubToken: ghToken,
         }),
       })
 
