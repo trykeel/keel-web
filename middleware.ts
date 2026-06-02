@@ -1,10 +1,20 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
+import { NextResponse } from 'next/server'
 
 const isProtected = createRouteMatcher(['/dashboard(.*)'])
 
 export default clerkMiddleware(async (auth, req) => {
   if (isProtected(req)) {
-    await auth.protect()
+    const authObj = await auth()
+
+    if (!authObj.userId) {
+      return authObj.redirectToSignIn({ returnBackUrl: req.url })
+    }
+
+    const meta = authObj.sessionClaims?.publicMetadata as { plan?: string } | undefined
+    if (meta?.plan !== 'team') {
+      return NextResponse.redirect(new URL('/upgrade', req.url))
+    }
   }
 })
 

@@ -75,6 +75,7 @@ function OnboardingInner() {
       const messages: Record<string, string> = {
         no_code: 'GitHub authorization was cancelled.',
         auth_failed: 'GitHub authentication failed. Please try again.',
+        repos_failed: 'Could not fetch your repositories. Please try again.',
         invalid_state: 'Authorization request expired or was invalid. Please try again.',
         invalid_request: 'GitHub authorization was cancelled.',
         server_error: 'Something went wrong on our end. Please try again.',

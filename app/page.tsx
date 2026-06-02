@@ -838,10 +838,10 @@ const PLANS = [
   { name: 'Starter', price: '0', period: '/mo', desc: 'Solo devs and small projects.', highlight: false,
     features: ['1 repo', 'Up to 500 tests', '14-day history', 'Flakiness dashboard', 'Email alerts'],
     cta: 'Start free', href: '/sign-up' },
-  { name: 'Team', price: '199', period: '/mo', desc: 'Eliminate flakes across your team.', highlight: true,
+  { name: 'Team', price: '299', period: '/mo', desc: 'Eliminate flakes across your team.', highlight: true,
     features: ['20 repos', 'Unlimited tests', '90-day history', 'AI root cause', 'Auto-quarantine PR', 'Cost estimator', 'Slack digest'],
     cta: 'Start 14-day trial', href: '/sign-up' },
-  { name: 'Enterprise', price: '∞', period: '', desc: 'Large orgs, compliance needs.', highlight: false,
+  { name: 'Enterprise', price: 'Custom', period: '', desc: 'Large orgs with compliance needs.', highlight: false,
     features: ['Unlimited repos', 'SSO + audit logs', 'SOC2 Type II', 'SLA 99.9%', 'Dedicated support', 'Custom integrations'],
     cta: 'Talk to us', href: 'mailto:hi@trykeel.com' },
 ]
@@ -876,8 +876,8 @@ function Pricing() {
                   <p className="text-zinc-500 text-[13px]">{plan.desc}</p>
                 </div>
                 <div className="flex items-baseline gap-1 mb-8">
-                  <span className="text-[16px] text-zinc-500 self-start mt-3">$</span>
-                  <span className="text-[64px] font-black tracking-[-0.05em] leading-none">{plan.price}</span>
+                  {plan.price !== 'Custom' && <span className="text-[16px] text-zinc-500 self-start mt-3">$</span>}
+                  <span className={`font-black tracking-[-0.05em] leading-none ${plan.price === 'Custom' ? 'text-[48px]' : 'text-[64px]'}`}>{plan.price}</span>
                   {plan.period && <span className="text-zinc-500 text-[14px] font-mono">{plan.period}</span>}
                 </div>
                 <ul className="space-y-3 mb-8 flex-1 list-none p-0">

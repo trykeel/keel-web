@@ -6,7 +6,7 @@ import { useClerk, useUser } from '@clerk/nextjs'
 import {
   LayoutDashboard, TrendingUp, DollarSign, Settings, Key,
   ChevronsLeft, ChevronDown, ChevronRight, LogOut, Search,
-  Sparkles, Check,
+  Sparkles, Check, Zap, Loader2,
 } from 'lucide-react'
 import { Sparkline, DonutGauge, HealthRings, Heatmap, TrendsChart, type HeatCell } from './charts'
 
@@ -74,6 +74,34 @@ function rateTone(r: number) {
 
 /* ────────── sidebar ────────── */
 function Sidebar() {
+  const { user } = useUser()
+  const [plan, setPlan] = useState<'starter' | 'team'>('starter')
+  const [upgrading, setUpgrading] = useState(false)
+
+  useEffect(() => {
+    const stored = localStorage.getItem('keelPlan')
+    if (stored === 'team') setPlan('team')
+  }, [])
+
+  async function handleUpgrade() {
+    const orgId = localStorage.getItem('keelOrgId')
+    if (!orgId) return
+    setUpgrading(true)
+    try {
+      const res = await fetch(`${API_URL}/billing/checkout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orgId, email: user?.primaryEmailAddress?.emailAddress ?? '' }),
+      })
+      const data = await res.json()
+      if (data.url) {
+        window.location.href = data.url
+      }
+    } catch {
+      setUpgrading(false)
+    }
+  }
+
   const items = [
     { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard', active: true },
     { icon: TrendingUp, label: 'Tests', href: '#' },
@@ -99,11 +127,25 @@ function Sidebar() {
           </Link>
         ))}
       </nav>
-      <div className="p-4 border-t border-white/[0.05] flex flex-col gap-4">
+      <div className="p-4 border-t border-white/[0.05] flex flex-col gap-3">
         <Link href="#" className="flex items-center gap-2 font-mono text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors">
           <Key size={13} />Manage API keys
         </Link>
-        <span className="font-mono text-[9px] tracking-[0.18em] uppercase text-amber-300 border border-amber-500/30 bg-amber-500/10 rounded-full px-2.5 py-1 w-fit">★ Starter</span>
+        {plan === 'team' ? (
+          <span className="font-mono text-[9px] tracking-[0.18em] uppercase text-blue-300 border border-blue-500/30 bg-blue-500/10 rounded-full px-2.5 py-1 w-fit">★ Team</span>
+        ) : (
+          <button
+            onClick={handleUpgrade}
+            disabled={upgrading}
+            className="flex items-center justify-center gap-1.5 w-full rounded-lg py-2 text-[11px] font-semibold text-white disabled:opacity-60 transition-opacity"
+            style={{ background: 'linear-gradient(120deg, rgba(59,130,246,0.85), rgba(139,92,246,0.85))' }}
+          >
+            {upgrading
+              ? <><Loader2 size={11} className="animate-spin" />Redirecting…</>
+              : <><Zap size={11} />Upgrade to Team</>
+            }
+          </button>
+        )}
       </div>
     </aside>
   )
