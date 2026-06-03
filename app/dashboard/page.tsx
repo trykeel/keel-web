@@ -261,7 +261,7 @@ function DetectedRow({ tests, query, setQuery }: { tests: TestRow[]; query: stri
       <span className="font-mono text-[10px] tracking-[0.16em] uppercase text-zinc-500 shrink-0">Recently detected</span>
       <div className="flex items-center gap-2 flex-1 flex-wrap">
         {chips.map(c => (
-          <Link key={c.testName} href={`/dashboard/tests/${encodeURIComponent(c.testName)}`}
+          <Link key={c.testName} href={`/dashboard/tests/${encodeURIComponent(c.testName)}?filePath=${encodeURIComponent(c.filePath)}`}
             className="group flex items-center gap-2.5 bg-[#0c0c11] border border-white/[0.08] hover:border-red-500/30 rounded-lg pl-3 pr-2 py-1.5 transition-colors">
             <span className="font-mono text-[11px] text-zinc-300 truncate max-w-[150px]">{c.testName}</span>
             <span className="font-mono text-[10px] text-zinc-600">sev</span>
@@ -300,7 +300,7 @@ function TestTable({ tests, query }: { tests: TestRow[]; query: string }) {
             return (
               <tr key={i} className={`border-t border-white/[0.04] hover:bg-white/[0.025] transition-colors ${tone.row}`}>
                 <td className="px-4 py-3">
-                  <Link href={`/dashboard/tests/${encodeURIComponent(t.testName)}`} className="font-mono text-[12px] text-zinc-200 hover:text-white transition-colors">{t.testName}</Link>
+                  <Link href={`/dashboard/tests/${encodeURIComponent(t.testName)}?filePath=${encodeURIComponent(t.filePath)}`} className="font-mono text-[12px] text-zinc-200 hover:text-white transition-colors">{t.testName}</Link>
                 </td>
                 <td className="px-4 py-3 font-mono text-[11px] text-zinc-600 truncate max-w-[180px]">{t.filePath}</td>
                 <td className="px-4 py-3">
@@ -316,13 +316,13 @@ function TestTable({ tests, query }: { tests: TestRow[]; query: string }) {
                 <td className="px-4 py-3 font-mono text-[11px] text-zinc-500">{fmtDate(t.lastFailedAt)}</td>
                 <td className="px-4 py-3">
                   {t.hasAnalysis ? (
-                    <Link href={`/dashboard/tests/${encodeURIComponent(t.testName)}`}
+                    <Link href={`/dashboard/tests/${encodeURIComponent(t.testName)}?filePath=${encodeURIComponent(t.filePath)}`}
                       className="flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-white text-[11px] font-medium"
                       style={{ background: 'linear-gradient(120deg, rgba(59,130,246,0.9), rgba(139,92,246,0.9))' }}>
                       <Sparkles size={12} />view
                     </Link>
                   ) : (
-                    <Link href={`/dashboard/tests/${encodeURIComponent(t.testName)}`}
+                    <Link href={`/dashboard/tests/${encodeURIComponent(t.testName)}?filePath=${encodeURIComponent(t.filePath)}`}
                       className="flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-zinc-300 text-[11px] font-medium border border-white/[0.1] hover:bg-white/[0.05] transition-colors">
                       Run AI
                     </Link>
