@@ -73,15 +73,22 @@ function rateTone(r: number) {
 }
 
 /* ────────── sidebar ────────── */
+const TRIAL_MS = 14 * 24 * 60 * 60 * 1000
+
+function trialDaysLeft(trialStartedAt: string | undefined): number | null {
+  if (!trialStartedAt) return null
+  const end = new Date(new Date(trialStartedAt).getTime() + TRIAL_MS)
+  const ms = end.getTime() - Date.now()
+  return ms > 0 ? Math.ceil(ms / (24 * 60 * 60 * 1000)) : 0
+}
+
 function Sidebar() {
   const { user } = useUser()
-  const [plan, setPlan] = useState<'starter' | 'team'>('starter')
   const [upgrading, setUpgrading] = useState(false)
 
-  useEffect(() => {
-    const stored = localStorage.getItem('keelPlan')
-    if (stored === 'team') setPlan('team')
-  }, [])
+  const meta = user?.publicMetadata as { plan?: string; trialStartedAt?: string } | undefined
+  const plan = meta?.plan === 'team' ? 'team' : 'starter'
+  const daysLeft = plan !== 'team' ? trialDaysLeft(meta?.trialStartedAt) : null
 
   async function handleUpgrade() {
     const orgId = localStorage.getItem('keelOrgId')
@@ -134,17 +141,30 @@ function Sidebar() {
         {plan === 'team' ? (
           <span className="font-mono text-[9px] tracking-[0.18em] uppercase text-blue-300 border border-blue-500/30 bg-blue-500/10 rounded-full px-2.5 py-1 w-fit">★ Team</span>
         ) : (
-          <button
-            onClick={handleUpgrade}
-            disabled={upgrading}
-            className="flex items-center justify-center gap-1.5 w-full rounded-lg py-2 text-[11px] font-semibold text-white disabled:opacity-60 transition-opacity"
-            style={{ background: 'linear-gradient(120deg, rgba(59,130,246,0.85), rgba(139,92,246,0.85))' }}
-          >
-            {upgrading
-              ? <><Loader2 size={11} className="animate-spin" />Redirecting…</>
-              : <><Zap size={11} />Upgrade to Team</>
-            }
-          </button>
+          <>
+            {daysLeft !== null && (
+              <div className={`rounded-lg px-3 py-2 text-[11px] font-mono border ${
+                daysLeft <= 3
+                  ? 'bg-amber-500/10 border-amber-500/25 text-amber-400'
+                  : 'bg-blue-500/10 border-blue-500/20 text-blue-400'
+              }`}>
+                {daysLeft === 0
+                  ? 'Trial expired'
+                  : `${daysLeft} day${daysLeft === 1 ? '' : 's'} left in trial`}
+              </div>
+            )}
+            <button
+              onClick={handleUpgrade}
+              disabled={upgrading}
+              className="flex items-center justify-center gap-1.5 w-full rounded-lg py-2 text-[11px] font-semibold text-white disabled:opacity-60 transition-opacity"
+              style={{ background: 'linear-gradient(120deg, rgba(59,130,246,0.85), rgba(139,92,246,0.85))' }}
+            >
+              {upgrading
+                ? <><Loader2 size={11} className="animate-spin" />Redirecting…</>
+                : <><Zap size={11} />Upgrade to Team</>
+              }
+            </button>
+          </>
         )}
       </div>
     </aside>
