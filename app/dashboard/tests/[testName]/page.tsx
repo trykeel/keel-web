@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   ArrowLeft, FileText, Clock, GitCommit, GitBranch,
@@ -26,6 +26,7 @@ type Analysis = {
   suggestedFix: string
   codeEvidence: string
   createdAt: string
+  updatedAt: string
   // optional enrichments — rendered when the API provides them
   model?: string
   durationMs?: number
@@ -228,7 +229,9 @@ function Skeleton() {
 /* ── page ── */
 export default function TestDetailPage() {
   const params = useParams<{ testName: string }>()
+  const searchParams = useSearchParams()
   const testName = decodeURIComponent(params.testName)
+  const filePath = searchParams.get('filePath') ?? ''
 
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
@@ -248,7 +251,7 @@ export default function TestDetailPage() {
     let cancelled = false
     async function load() {
       try {
-        const res = await fetch(`${API_URL}/repos/${repoId}/tests/${encoded}`)
+        const res = await fetch(`${API_URL}/repos/${repoId}/tests/${encoded}?filePath=${encodeURIComponent(filePath)}`)
         if (res.status === 404) { if (!cancelled) { setNotFound(true); setLoading(false) } return }
         if (!res.ok) throw new Error(`${res.status}`)
         const json: TestDetail = await res.json()
@@ -259,15 +262,19 @@ export default function TestDetailPage() {
     }
     load()
     return () => { cancelled = true; if (pollRef.current) clearInterval(pollRef.current) }
-  }, [repoId, encoded])
+  }, [repoId, encoded, filePath])
 
   // trigger analysis, then poll every 3s until it appears
   const runAnalysis = useCallback(async () => {
     setAnalysing(true)
     try {
-      await fetch(`${API_URL}/repos/${repoId}/tests/${encoded}/analyse`, { method: 'POST' })
+      await fetch(`${API_URL}/repos/${repoId}/tests/${encoded}/analyse`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filePath }),
+      })
       pollRef.current = setInterval(async () => {
-        const res = await fetch(`${API_URL}/repos/${repoId}/tests/${encoded}/analysis`)
+        const res = await fetch(`${API_URL}/repos/${repoId}/tests/${encoded}/analysis?filePath=${encodeURIComponent(filePath)}`)
         if (res.ok) {
           const analysis: Analysis = await res.json()
           if (analysis && analysis.rootCauseType) {
@@ -280,12 +287,16 @@ export default function TestDetailPage() {
     } catch {
       setAnalysing(false)
     }
-  }, [repoId, encoded])
+  }, [repoId, encoded, filePath])
 
   async function confirmQuarantine() {
     setQuarantining(true)
     try {
-      const res = await fetch(`${API_URL}/repos/${repoId}/tests/${encoded}/quarantine`, { method: 'POST' })
+      const res = await fetch(`${API_URL}/repos/${repoId}/tests/${encoded}/quarantine`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filePath }),
+      })
       const json = await res.json()
       setPrUrl(json.prUrl || json.url || null)
       setShowModal(false)
@@ -384,7 +395,7 @@ export default function TestDetailPage() {
               </div>
               <div className="ml-auto flex items-center gap-2.5 font-mono text-[10px] text-zinc-600">
                 {analysis.durationMs && <><span>{(analysis.durationMs / 1000).toFixed(1)}s</span><span className="text-zinc-700">·</span></>}
-                <span>{timeAgo(analysis.createdAt)}</span>
+                <span>{timeAgo(analysis.updatedAt)}</span>
               </div>
             </div>
 
