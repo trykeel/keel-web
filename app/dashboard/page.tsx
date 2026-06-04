@@ -6,9 +6,9 @@ import { useClerk, useUser } from '@clerk/nextjs'
 import {
   LayoutDashboard, TrendingUp, DollarSign, Settings, Key,
   ChevronsLeft, ChevronDown, ChevronRight, LogOut, Search,
-  Sparkles, Check, Zap, Loader2,
+  Sparkles, Check, Zap, Loader2, AlertCircle, RefreshCw, GitBranch,
 } from 'lucide-react'
-import { Sparkline, DonutGauge, HealthRings, Heatmap, TrendsChart, type HeatCell } from './charts'
+import { DonutGauge, HealthRings } from './charts'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
@@ -21,44 +21,6 @@ type TestRow = {
   estimatedCostUsd: number
   lastFailedAt: string | null
   hasAnalysis: boolean
-}
-
-/* ────────── mock fallback ────────── */
-const MOCK_TESTS: TestRow[] = [
-  { testName: 'UserAuth › login with SSO',   filePath: 'backend/api/auth/sso.test.ts',     flakinessRate: 0.34, totalRuns: 412, estimatedCostUsd: 18200, lastFailedAt: '2026-05-29T12:04:00Z', hasAnalysis: true },
-  { testName: 'Checkout › payment timeout',  filePath: 'backend/checkout/payment.test.ts', flakinessRate: 0.33, totalRuns: 388, estimatedCostUsd: 11400, lastFailedAt: '2026-05-28T19:00:00Z', hasAnalysis: true },
-  { testName: 'API › rate limit retry',      filePath: 'backend/api/ratelimit.test.ts',    flakinessRate: 0.10, totalRuns: 521, estimatedCostUsd:  6500, lastFailedAt: '2026-05-27T10:10:00Z', hasAnalysis: true },
-  { testName: 'Email › delivery webhook',    filePath: 'backend/email/webhook.test.ts',    flakinessRate: 0.13, totalRuns: 277, estimatedCostUsd:  3800, lastFailedAt: '2026-05-26T19:00:00Z', hasAnalysis: false },
-  { testName: 'Reports › PDF generation',    filePath: 'backend/reports/pdf.test.ts',      flakinessRate: 0.24, totalRuns: 198, estimatedCostUsd:  9100, lastFailedAt: '2026-05-25T07:30:00Z', hasAnalysis: false },
-  { testName: 'Sync › realtime stream',      filePath: 'backend/sync/stream.test.ts',      flakinessRate: 0.26, totalRuns: 164, estimatedCostUsd:  7300, lastFailedAt: '2026-05-24T19:30:00Z', hasAnalysis: false },
-  { testName: 'Search › fuzzy match',        filePath: 'backend/search/fuzzy.test.ts',     flakinessRate: 0.08, totalRuns: 142, estimatedCostUsd:  2100, lastFailedAt: '2026-05-20T09:12:00Z', hasAnalysis: true },
-  { testName: 'Billing › invoice generator', filePath: 'backend/billing/invoice.test.ts',  flakinessRate: 0.04, totalRuns: 109, estimatedCostUsd:  1200, lastFailedAt: '2026-05-18T14:00:00Z', hasAnalysis: false },
-]
-
-const SPARK = [12, 18, 14, 22, 19, 28, 24, 33, 27, 38, 31, 44, 36, 48, 41, 52, 47, 58, 51, 62]
-
-const HEAT: HeatCell[] = (() => {
-  const seq: HeatCell[] = []
-  for (let i = 0; i < 56; i++) {
-    if (i < 14) seq.push(Math.random() < 0.75 ? 'high' : 'med')
-    else if (i < 26) seq.push((['high', 'med', 'med', 'low'] as HeatCell[])[Math.floor(Math.random() * 4)])
-    else if (i < 46) seq.push((['med', 'low', 'low', 'low'] as HeatCell[])[Math.floor(Math.random() * 4)])
-    else seq.push(Math.random() < 0.5 ? 'low' : 'none')
-  }
-  return seq
-})()
-
-const RECO = [
-  { strong: 'UserAuth › login with SSO', rest: ' — add waitForSelector before asserting (34% flaky)', done: false },
-  { strong: 'Quarantine', rest: ' Checkout › payment timeout to unblock 3 stuck deploys', done: false },
-  { strong: 'Resolved', rest: ' Search › fuzzy match is now stable across 40 runs', done: true },
-  { strong: 'Review', rest: ' Reports › PDF generation — cost up 18% week-over-week', done: false },
-]
-
-const TREND: Record<string, { health: number[]; cost: number[] }> = {
-  '7d':  { health: [88, 86, 90, 87, 91, 93, 94], cost: [40, 44, 39, 47, 42, 38, 36] },
-  '30d': { health: [72, 70, 75, 73, 78, 76, 80, 79, 83, 81, 85, 84, 88, 90, 94], cost: [62, 58, 60, 55, 57, 52, 54, 49, 51, 46, 48, 43, 41, 38, 36] },
-  '90d': { health: [55, 60, 58, 64, 62, 68, 66, 72, 70, 76, 80, 84, 88, 92, 94], cost: [85, 80, 82, 76, 78, 70, 66, 60, 58, 52, 48, 44, 40, 38, 36] },
 }
 
 /* ────────── helpers ────────── */
@@ -101,9 +63,7 @@ function Sidebar() {
         body: JSON.stringify({ orgId, email: user?.primaryEmailAddress?.emailAddress ?? '' }),
       })
       const data = await res.json()
-      if (data.url) {
-        window.location.href = data.url
-      }
+      if (data.url) window.location.href = data.url
     } catch {
       setUpgrading(false)
     }
@@ -206,17 +166,24 @@ function StatCard({ children }: { children: React.ReactNode }) {
 function StatsRow({ tests }: { tests: TestRow[] }) {
   const flaky = tests.filter(t => t.flakinessRate > 0.05).length
   const totalCost = tests.reduce((s, t) => s + t.estimatedCostUsd, 0)
+  const flakyPct = Math.round((flaky / Math.max(1, tests.length)) * 100)
+
+  const stable = tests.filter(t => t.flakinessRate < 0.12).length
+  const mid    = tests.filter(t => t.flakinessRate >= 0.12 && t.flakinessRate < 0.25).length
+  const high   = tests.filter(t => t.flakinessRate >= 0.25).length
+  const n = Math.max(1, tests.length)
+  const rings = [
+    { value: Math.round((stable / n) * 100), color: '#34d399' },
+    { value: Math.round(((stable + mid) / n) * 100), color: '#60a5fa' },
+    { value: Math.round(((n - high) / n) * 100), color: '#f87171' },
+  ]
+
   return (
     <div className="grid grid-cols-3 gap-4">
       <StatCard>
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="font-mono text-[10px] tracking-[0.16em] uppercase text-zinc-500 mb-2">Flaky tests</div>
-            <span className="text-[44px] font-black tracking-[-0.05em] leading-none text-red-400">{flaky}</span>
-            <div className="font-mono text-[11px] text-zinc-600 mt-1.5">of {tests.length} tracked</div>
-          </div>
-          <div className="mt-1"><Sparkline data={SPARK} /></div>
-        </div>
+        <div className="font-mono text-[10px] tracking-[0.16em] uppercase text-zinc-500 mb-2">Flaky tests</div>
+        <span className="text-[44px] font-black tracking-[-0.05em] leading-none text-red-400">{flaky}</span>
+        <div className="font-mono text-[11px] text-zinc-600 mt-1.5">of {tests.length} tracked</div>
       </StatCard>
 
       <StatCard>
@@ -224,11 +191,11 @@ function StatsRow({ tests }: { tests: TestRow[] }) {
         <div className="flex items-center justify-between">
           <div>
             <div className="text-[40px] font-black tracking-[-0.05em] leading-none text-amber-300 tabular-nums">${Math.round(totalCost).toLocaleString()}</div>
-            <div className="font-mono text-[11px] text-zinc-600 mt-1.5">of cloud budget</div>
+            <div className="font-mono text-[11px] text-zinc-600 mt-1.5">estimated CI cost</div>
           </div>
           <div className="flex flex-col items-center gap-1">
-            <DonutGauge value={12} />
-            <span className="font-mono text-[9px] text-zinc-600 uppercase tracking-wide">wasted</span>
+            <DonutGauge value={flakyPct} />
+            <span className="font-mono text-[9px] text-zinc-600 uppercase tracking-wide">flaky</span>
           </div>
         </div>
       </StatCard>
@@ -236,17 +203,13 @@ function StatsRow({ tests }: { tests: TestRow[] }) {
       <StatCard>
         <div className="font-mono text-[10px] tracking-[0.16em] uppercase text-zinc-500 mb-2">Health score</div>
         <div className="flex items-center gap-4">
-          <HealthRings rings={[
-            { value: 96, color: '#34d399' },
-            { value: 92, color: '#60a5fa' },
-            { value: 89, color: '#f87171' },
-          ]} />
+          <HealthRings rings={rings} />
           <div className="flex flex-col gap-2">
-            {([['Frontend', 96, '#34d399'], ['Backend', 92, '#60a5fa'], ['Core', 89, '#f87171']] as const).map(([l, v, c]) => (
+            {([['Stable', stable, '#34d399'], ['Medium', mid, '#60a5fa'], ['High risk', high, '#f87171']] as const).map(([l, v, c]) => (
               <div key={l} className="flex items-center gap-2 font-mono text-[11px]">
                 <span className="w-2 h-2 rounded-full" style={{ background: c }} />
                 <span className="text-zinc-400">{l}</span>
-                <span className="text-zinc-200 ml-auto tabular-nums">{v}%</span>
+                <span className="text-zinc-200 ml-auto tabular-nums">{v}</span>
               </div>
             ))}
           </div>
@@ -256,9 +219,13 @@ function StatsRow({ tests }: { tests: TestRow[] }) {
   )
 }
 
-function Tabs() {
+function Tabs({ flakyCount }: { flakyCount: number }) {
   const [active, setActive] = useState('flaky')
-  const tabs: [string, string, string][] = [['flaky', 'Flaky tests', '81'], ['stability', 'CI stability', '94%'], ['cost', 'Cost trends', '']]
+  const tabs: [string, string, string][] = [
+    ['flaky', 'Flaky tests', flakyCount > 0 ? String(flakyCount) : ''],
+    ['stability', 'CI stability', ''],
+    ['cost', 'Cost trends', ''],
+  ]
   return (
     <div className="flex items-center gap-7 border-b border-white/[0.06] px-1">
       {tabs.map(([id, label, badge]) => (
@@ -357,8 +324,13 @@ function TestTable({ tests, query }: { tests: TestRow[]; query: string }) {
   )
 }
 
-function Recommendations() {
+function Recommendations({ tests }: { tests: TestRow[] }) {
   const [open, setOpen] = useState(true)
+  const withAnalysis = [...tests]
+    .filter(t => t.hasAnalysis)
+    .sort((a, b) => b.flakinessRate - a.flakinessRate)
+    .slice(0, 4)
+
   return (
     <div className="rounded-2xl border border-white/[0.07] bg-[#0c0c11] overflow-hidden">
       <button onClick={() => setOpen(o => !o)} className="w-full flex items-center justify-between px-5 py-3.5 border-b border-white/[0.06]">
@@ -369,16 +341,28 @@ function Recommendations() {
       </button>
       {open && (
         <div className="p-3 flex flex-col">
-          {RECO.map((r, i) => (
-            <Link key={i} href="#" className={`flex items-start gap-3 px-3 py-2.5 rounded-lg transition-colors ${i === 0 ? 'bg-blue-500/[0.07]' : 'hover:bg-white/[0.03]'}`}>
-              {r.done ? <Check size={13} className="mt-0.5 shrink-0 text-emerald-400" />
-                : i === 0 ? <Sparkles size={13} className="mt-0.5 shrink-0 text-blue-300" />
-                : <ChevronRight size={13} className="mt-0.5 shrink-0 text-zinc-600" />}
-              <span className="text-[12px] leading-relaxed text-zinc-400">
-                <span className={r.done ? 'text-emerald-300 font-medium' : 'text-zinc-200 font-medium'}>{r.strong}</span>{r.rest}
-              </span>
-            </Link>
-          ))}
+          {withAnalysis.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 py-8 text-center px-4">
+              <Sparkles size={20} className="text-zinc-700" />
+              <p className="text-[12px] text-zinc-500 leading-relaxed">
+                No AI analysis yet.<br />Click <span className="text-zinc-300">Run AI</span> on any flaky test to generate recommendations.
+              </p>
+            </div>
+          ) : (
+            withAnalysis.map((t, i) => (
+              <Link key={i}
+                href={`/dashboard/tests/${encodeURIComponent(t.testName)}?filePath=${encodeURIComponent(t.filePath)}`}
+                className={`flex items-start gap-3 px-3 py-2.5 rounded-lg transition-colors ${i === 0 ? 'bg-blue-500/[0.07]' : 'hover:bg-white/[0.03]'}`}>
+                {i === 0
+                  ? <Sparkles size={13} className="mt-0.5 shrink-0 text-blue-300" />
+                  : <ChevronRight size={13} className="mt-0.5 shrink-0 text-zinc-600" />}
+                <span className="text-[12px] leading-relaxed text-zinc-400">
+                  <span className="text-zinc-200 font-medium">{t.testName}</span>
+                  {' — '}{Math.round(t.flakinessRate * 100)}% flaky · view AI analysis
+                </span>
+              </Link>
+            ))
+          )}
         </div>
       )}
     </div>
@@ -386,29 +370,86 @@ function Recommendations() {
 }
 
 function StabilityTrends() {
-  const [range, setRange] = useState('30d')
-  const t = TREND[range]
   return (
-    <div className="rounded-2xl border border-white/[0.07] bg-[#0c0c11] p-5">
+    <div className="rounded-2xl border border-white/[0.07] bg-[#0c0c11] p-5 flex flex-col justify-between">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-[14px] font-bold tracking-tight">Stability trends</h3>
-          <div className="flex items-center gap-4 mt-1.5 font-mono text-[10px]">
-            <span className="flex items-center gap-1.5 text-zinc-500"><span className="w-2.5 h-0.5 rounded-full bg-emerald-400" />health</span>
-            <span className="flex items-center gap-1.5 text-zinc-500"><span className="w-2.5 h-0.5 rounded-full bg-amber-400" />cost index</span>
-          </div>
+          <p className="text-[12px] text-zinc-600 mt-1">Historical health and cost over time</p>
         </div>
-        <div className="flex items-center gap-1 bg-[#08080b] border border-white/[0.08] rounded-lg p-0.5">
+        <div className="flex items-center gap-1 bg-[#08080b] border border-white/[0.08] rounded-lg p-0.5 opacity-40 pointer-events-none">
           {['7d', '30d', '90d'].map(r => (
-            <button key={r} onClick={() => setRange(r)}
-              className={`px-2.5 py-1 rounded-md font-mono text-[10px] transition-colors ${range === r ? 'bg-white/[0.1] text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>{r}</button>
+            <button key={r} className={`px-2.5 py-1 rounded-md font-mono text-[10px] text-zinc-500`}>{r}</button>
           ))}
         </div>
       </div>
-      <TrendsChart series={[
-        { data: t.health, color: '#34d399' },
-        { data: t.cost, color: '#f59e0b' },
-      ]} />
+      <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
+        <GitBranch size={22} className="text-zinc-700" />
+        <p className="text-[12px] text-zinc-500 leading-relaxed max-w-[200px]">
+          Trend data available after<br />7 days of CI runs.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+/* ────────── loading / empty / error states ────────── */
+function LoadingSkeleton() {
+  return (
+    <div className="flex flex-col gap-5 animate-pulse">
+      <div className="grid grid-cols-3 gap-4">
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="h-28 rounded-2xl bg-white/[0.04]" />
+        ))}
+      </div>
+      <div className="h-8 rounded-xl bg-white/[0.04] w-64" />
+      <div className="h-64 rounded-2xl bg-white/[0.04]" />
+    </div>
+  )
+}
+
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center justify-center gap-5 py-20 text-center">
+      <div className="w-14 h-14 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+        <GitBranch size={24} className="text-blue-400" />
+      </div>
+      <div>
+        <h2 className="text-[20px] font-bold tracking-tight mb-2">No flaky tests detected yet</h2>
+        <p className="text-[13px] text-zinc-500 leading-relaxed max-w-[340px]">
+          Add the Keel action to your CI workflow and push a commit to start seeing flakiness data.
+        </p>
+      </div>
+      <div className="w-full max-w-[480px] rounded-xl bg-[#0c0c12] border border-white/[0.08] overflow-hidden text-left">
+        <div className="px-4 py-2 border-b border-white/[0.06] font-mono text-[10px] text-zinc-600 tracking-wider">.GITHUB/WORKFLOWS/CI.YML</div>
+        <pre className="p-4 font-mono text-[11.5px] leading-[1.7] overflow-x-auto text-zinc-300">
+{`- name: Report to Keel
+  uses: trykeel/keel-action@v1
+  with:
+    api-key: \${{ secrets.KEEL_API_KEY }}
+    test-results-path: ./test-results/**/*.xml`}
+        </pre>
+      </div>
+    </div>
+  )
+}
+
+function ErrorState({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
+      <div className="w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+        <AlertCircle size={24} className="text-red-400" />
+      </div>
+      <div>
+        <h2 className="text-[18px] font-bold tracking-tight mb-2">Could not load test data</h2>
+        <p className="text-[13px] text-zinc-500">Check your API connection and try again.</p>
+      </div>
+      <button
+        onClick={onRetry}
+        className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-white/[0.1] text-[13px] text-zinc-300 hover:bg-white/[0.05] transition-colors"
+      >
+        <RefreshCw size={13} />Retry
+      </button>
     </div>
   )
 }
@@ -416,9 +457,22 @@ function StabilityTrends() {
 /* ────────── page ────────── */
 export default function DashboardPage() {
   const [tests, setTests] = useState<TestRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
   const [query, setQuery] = useState('')
   const [orgName, setOrgName] = useState('')
   const [repoName, setRepoName] = useState('')
+
+  function load() {
+    setLoading(true)
+    setError(false)
+    const repoId = localStorage.getItem('keelRepoId')
+    fetch(`${API_URL}/repos/${repoId}/tests`)
+      .then(r => { if (!r.ok) throw new Error(); return r.json() })
+      .then(json => setTests(Array.isArray(json) ? json : json.tests ?? []))
+      .catch(() => setError(true))
+      .finally(() => setLoading(false))
+  }
 
   useEffect(() => {
     if (!localStorage.getItem('keelOrgId')) {
@@ -427,21 +481,10 @@ export default function DashboardPage() {
     }
     setOrgName(localStorage.getItem('keelOrgName') || 'your-org')
     setRepoName(localStorage.getItem('keelRepoName') || 'your-repo')
-    const repoId = localStorage.getItem('keelRepoId')
-    let cancelled = false
-    async function load() {
-      try {
-        const res = await fetch(`${API_URL}/repos/${repoId}/tests`)
-        if (!res.ok) throw new Error()
-        const json = await res.json()
-        if (!cancelled) setTests(Array.isArray(json) ? json : json.tests ?? MOCK_TESTS)
-      } catch {
-        if (!cancelled) setTests(MOCK_TESTS)
-      }
-    }
     load()
-    return () => { cancelled = true }
   }, [])
+
+  const flakyCount = tests.filter(t => t.flakinessRate > 0.05).length
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#08080b] text-white">
@@ -450,17 +493,24 @@ export default function DashboardPage() {
         <TopBar orgName={orgName} repoName={repoName} />
         <div className="flex-1 overflow-y-auto px-7 py-6">
           <div className="max-w-[1180px] mx-auto flex flex-col gap-5">
-            <Tabs />
-            <StatsRow tests={tests} />
-            <div className="rounded-2xl border border-white/[0.07] bg-[#0c0c11] p-3">
-              <Heatmap cells={HEAT} />
-            </div>
-            <DetectedRow tests={tests} query={query} setQuery={setQuery} />
-            <TestTable tests={tests} query={query} />
-            <div className="grid grid-cols-[1fr_1.4fr] gap-5 pb-4">
-              <Recommendations />
-              <StabilityTrends />
-            </div>
+            <Tabs flakyCount={flakyCount} />
+            {loading ? (
+              <LoadingSkeleton />
+            ) : error ? (
+              <ErrorState onRetry={load} />
+            ) : tests.length === 0 ? (
+              <EmptyState />
+            ) : (
+              <>
+                <StatsRow tests={tests} />
+                <DetectedRow tests={tests} query={query} setQuery={setQuery} />
+                <TestTable tests={tests} query={query} />
+                <div className="grid grid-cols-[1fr_1.4fr] gap-5 pb-4">
+                  <Recommendations tests={tests} />
+                  <StabilityTrends />
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
