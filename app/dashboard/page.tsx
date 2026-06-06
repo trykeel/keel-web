@@ -363,8 +363,6 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
 export default function DashboardPage() {
   const router = useRouter()
   const { getToken } = useAuth()
-  const [plan, setPlan] = useState<'starter' | 'team' | 'trialing'>('trialing')
-  const [trialDaysLeft, setTrialDaysLeft] = useState(0)
   const [checking, setChecking] = useState(true)
   const [initRetry, setInitRetry] = useState(0)
   const [tests, setTests] = useState<TestRow[]>([])
@@ -375,16 +373,16 @@ export default function DashboardPage() {
   const [repoName, setRepoName] = useState('')
   const [repoId, setRepoId] = useState('')
 
-  async function load(rid: string) {
+  async function load(repoId: string) {
     setLoading(true)
     setError(false)
     try {
       const token = await getToken()
-      const r = await fetch(`${API_URL}/repos/${rid}/tests`, {
+      const res = await fetch(`${API_URL}/repos/${repoId}/tests`, {
         headers: { Authorization: `Bearer ${token}` },
       })
-      if (!r.ok) throw new Error()
-      const json = await r.json()
+      if (!res.ok) throw new Error()
+      const json = await res.json()
       setTests(Array.isArray(json) ? json : json.tests ?? [])
     } catch {
       setError(true)
@@ -413,11 +411,6 @@ export default function DashboardPage() {
         if (!data.repoId || !data.orgName || !data.repoName) {
           throw new Error('incomplete org data from server')
         }
-        if (data.plan === 'trialing' && typeof data.trialDaysLeft !== 'number') {
-          throw new Error('missing trialDaysLeft for trialing plan')
-        }
-        setPlan(data.plan)
-        setTrialDaysLeft(data.trialDaysLeft)
         setOrgName(data.orgName)
         setRepoName(data.repoName)
         setRepoId(data.repoId)
