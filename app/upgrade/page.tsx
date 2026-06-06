@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useUser } from '@clerk/nextjs'
+import { useUser, useAuth } from '@clerk/nextjs'
 import { Zap, Check, Loader2, ArrowLeft } from 'lucide-react'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
@@ -18,6 +18,7 @@ const FEATURES = [
 
 export default function UpgradePage() {
   const { user } = useUser()
+  const { getToken } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -30,9 +31,10 @@ export default function UpgradePage() {
     setLoading(true)
     setError('')
     try {
+      const token = await getToken()
       const res = await fetch(`${API_URL}/billing/checkout`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ orgId, email: user?.primaryEmailAddress?.emailAddress ?? '' }),
       })
       const data = await res.json()
