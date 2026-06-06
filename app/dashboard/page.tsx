@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
-import { useClerk, useUser } from '@clerk/nextjs'
+import { useClerk, useUser, useAuth } from '@clerk/nextjs'
 import {
   ChevronDown, ChevronRight, LogOut, Search,
   Sparkles, Check, Loader2, AlertCircle, RefreshCw, GitBranch,
@@ -361,6 +361,7 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
 
 /* ────────── page ────────── */
 export default function DashboardPage() {
+  const { getToken } = useAuth()
   const [tests, setTests] = useState<TestRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -368,15 +369,23 @@ export default function DashboardPage() {
   const [orgName, setOrgName] = useState('')
   const [repoName, setRepoName] = useState('')
 
-  function load() {
+  async function load() {
     setLoading(true)
     setError(false)
-    const repoId = localStorage.getItem('keelRepoId')
-    fetch(`${API_URL}/repos/${repoId}/tests`)
-      .then(r => { if (!r.ok) throw new Error(); return r.json() })
-      .then(json => setTests(Array.isArray(json) ? json : json.tests ?? []))
-      .catch(() => setError(true))
-      .finally(() => setLoading(false))
+    try {
+      const repoId = localStorage.getItem('keelRepoId')
+      const token = await getToken()
+      const r = await fetch(`${API_URL}/repos/${repoId}/tests`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!r.ok) throw new Error()
+      const json = await r.json()
+      setTests(Array.isArray(json) ? json : json.tests ?? [])
+    } catch {
+      setError(true)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
