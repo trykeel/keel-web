@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useClerk, useUser, useAuth } from '@clerk/nextjs'
 import {
@@ -34,7 +35,6 @@ function rateTone(r: number) {
   return { bar: 'bg-emerald-500', text: 'text-emerald-400', row: '' }
 }
 
-/* ────────── sidebar ────────── */
 
 function TopBar({ orgName, repoName }: { orgName: string; repoName: string }) {
   const { signOut } = useClerk()
@@ -361,25 +361,28 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
 
 /* ────────── page ────────── */
 export default function DashboardPage() {
+  const router = useRouter()
   const { getToken } = useAuth()
+  const [checking, setChecking] = useState(true)
+  const [initRetry, setInitRetry] = useState(0)
   const [tests, setTests] = useState<TestRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [query, setQuery] = useState('')
   const [orgName, setOrgName] = useState('')
   const [repoName, setRepoName] = useState('')
+  const [repoId, setRepoId] = useState('')
 
-  async function load() {
+  async function load(repoId: string) {
     setLoading(true)
     setError(false)
     try {
-      const repoId = localStorage.getItem('keelRepoId')
       const token = await getToken()
-      const r = await fetch(`${API_URL}/repos/${repoId}/tests`, {
+      const res = await fetch(`${API_URL}/repos/${repoId}/tests`, {
         headers: { Authorization: `Bearer ${token}` },
       })
-      if (!r.ok) throw new Error()
-      const json = await r.json()
+      if (!res.ok) throw new Error()
+      const json = await res.json()
       setTests(Array.isArray(json) ? json : json.tests ?? [])
     } catch {
       setError(true)
@@ -389,14 +392,52 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
-    if (!localStorage.getItem('keelOrgId')) {
-      window.location.replace('/onboarding')
-      return
+    async function init() {
+      try {
+        const token = await getToken()
+        if (!token) { router.replace('/sign-in'); return }
+
+        const res = await fetch(`${API_URL}/billing/plan`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!res.ok) throw new Error(`${res.status}`)
+        const data = await res.json()
+
+        if (!data.onboarded) { router.replace('/onboarding'); return }
+
+        if (!data.repoId || !data.orgName || !data.repoName) {
+          throw new Error('incomplete org data from server')
+        }
+        setOrgName(data.orgName)
+        setRepoName(data.repoName)
+        setRepoId(data.repoId)
+        setChecking(false)
+        load(data.repoId)
+      } catch {
+        setChecking(false)
+        setError(true)
+      }
     }
-    setOrgName(localStorage.getItem('keelOrgName') || 'your-org')
-    setRepoName(localStorage.getItem('keelRepoName') || 'your-repo')
-    load()
-  }, [])
+    init()
+  }, [getToken, router, initRetry])
+
+  if (checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#08080b]">
+        {error
+          ? <div className="flex flex-col items-center gap-3 text-center">
+              <AlertCircle size={20} className="text-red-400" />
+              <p className="text-[13px] text-zinc-500">Could not reach the server.</p>
+              <button onClick={() => { setError(false); setChecking(true); setInitRetry(n => n + 1) }}
+                className="text-[12px] text-zinc-400 hover:text-zinc-200 underline underline-offset-2">
+                Retry
+              </button>
+            </div>
+          : <Loader2 size={20} className="text-zinc-600 animate-spin" />
+        }
+      </div>
+    )
+  }
 
   const flakyCount = tests.filter(t => t.flakinessRate > 0.05).length
 
@@ -411,7 +452,7 @@ export default function DashboardPage() {
             {loading ? (
               <LoadingSkeleton />
             ) : error ? (
-              <ErrorState onRetry={load} />
+              <ErrorState onRetry={() => load(repoId)} />
             ) : tests.length === 0 ? (
               <EmptyState />
             ) : (

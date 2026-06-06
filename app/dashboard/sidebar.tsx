@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useUser, useAuth } from '@clerk/nextjs'
@@ -10,14 +10,6 @@ import {
 } from 'lucide-react'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
-const TRIAL_MS = 14 * 24 * 60 * 60 * 1000
-
-function trialDaysLeft(trialStartedAt: string | undefined): number | null {
-  if (!trialStartedAt) return null
-  const end = new Date(new Date(trialStartedAt).getTime() + TRIAL_MS)
-  const ms = end.getTime() - Date.now()
-  return ms > 0 ? Math.ceil(ms / (24 * 60 * 60 * 1000)) : 0
-}
 
 const NAV_ITEMS = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
@@ -31,10 +23,23 @@ export default function Sidebar() {
   const { getToken } = useAuth()
   const pathname = usePathname()
   const [upgrading, setUpgrading] = useState(false)
+  const [plan, setPlan] = useState<'starter' | 'team' | 'trialing'>('trialing')
+  const [daysLeft, setDaysLeft] = useState<number | null>(null)
 
-  const meta = user?.publicMetadata as { plan?: string; trialStartedAt?: string } | undefined
-  const plan = meta?.plan === 'team' ? 'team' : 'starter'
-  const daysLeft = plan !== 'team' ? trialDaysLeft(meta?.trialStartedAt) : null
+  useEffect(() => {
+    async function fetchPlan() {
+      try {
+        const token = await getToken()
+        const res = await fetch(`${API_URL}/billing/plan`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        const data = await res.json()
+        if (data.plan) setPlan(data.plan)
+        if (data.plan === 'trialing') setDaysLeft(data.trialDaysLeft ?? null)
+      } catch {}
+    }
+    fetchPlan()
+  }, [getToken])
 
   function isActive(href: string) {
     return href === '/dashboard' ? pathname === href : pathname.startsWith(href)

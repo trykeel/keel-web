@@ -1,26 +1,17 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useSession } from '@clerk/nextjs'
-import { CheckCircle2, ArrowRight, Zap, Loader2 } from 'lucide-react'
+import { CheckCircle2, ArrowRight, Zap } from 'lucide-react'
 
 export default function BillingSuccessPage() {
   const router = useRouter()
-  const { session } = useSession()
-  const [reloading, setReloading] = useState(true)
 
   useEffect(() => {
-    if (!session) return
-    // Reload the Clerk session so the JWT picks up publicMetadata.plan = "team"
-    // set by the Stripe webhook. Without this the middleware still sees the old plan.
-    session.reload().then(() => {
-      setReloading(false)
-      const t = setTimeout(() => router.push('/dashboard'), 3000)
-      return () => clearTimeout(t)
-    })
-  }, [session, router])
+    const t = setTimeout(() => router.push('/dashboard'), 3000)
+    return () => clearTimeout(t)
+  }, [router])
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-6 bg-[#07070a] text-white relative">
@@ -71,11 +62,8 @@ export default function BillingSuccessPage() {
           Go to dashboard <ArrowRight size={14} />
         </Link>
 
-        <p className="text-[12px] text-zinc-600 mt-4 flex items-center justify-center gap-1.5">
-          {reloading
-            ? <><Loader2 size={11} className="animate-spin" />Activating your plan…</>
-            : 'Redirecting to dashboard in a moment…'
-          }
+        <p className="text-[12px] text-zinc-600 mt-4">
+          Redirecting to dashboard in a moment…
         </p>
       </div>
     </main>

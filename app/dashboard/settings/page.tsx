@@ -73,6 +73,7 @@ export default function SettingsPage() {
   const { user } = useUser()
   const { getToken } = useAuth()
 
+  const [plan, setPlan] = useState<'starter' | 'team' | 'trialing' | ''>('')
   const [keys, setKeys] = useState<APIKey[]>([])
   const [keysLoading, setKeysLoading] = useState(true)
   const [keysError, setKeysError] = useState(false)
@@ -102,6 +103,18 @@ export default function SettingsPage() {
   }
 
   useEffect(() => { loadKeys() }, [orgId])
+
+  useEffect(() => {
+    async function fetchPlan() {
+      try {
+        const token = await getToken()
+        const res = await fetch(`${API_URL}/billing/plan`, { headers: { Authorization: `Bearer ${token}` } })
+        const data = await res.json()
+        if (data.plan) setPlan(data.plan)
+      } catch {}
+    }
+    fetchPlan()
+  }, [getToken])
 
   async function generateKey() {
     if (!orgId || !repoId) return
@@ -147,9 +160,7 @@ export default function SettingsPage() {
             <Section title="Workspace">
               <Row label="Organisation" value={orgName} />
               <Row label="Repository" value={repoName} />
-              <Row label="Plan" value={
-                (user?.publicMetadata as { plan?: string })?.plan === 'team' ? 'Team' : 'Starter (free trial)'
-              } />
+              <Row label="Plan" value={plan === 'team' ? 'Team' : plan === 'trialing' ? 'Free trial' : plan === 'starter' ? 'Starter' : '—'} />
             </Section>
 
             {/* API Keys */}
