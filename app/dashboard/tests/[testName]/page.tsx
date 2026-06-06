@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams, useSearchParams } from 'next/navigation'
+import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { useAuth } from '@clerk/nextjs'
 import Link from 'next/link'
 import {
@@ -245,6 +245,7 @@ export default function TestDetailPage() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const { getToken } = useAuth()
+  const router = useRouter()
   const repoId = typeof window !== 'undefined' ? localStorage.getItem('keelRepoId') : null
   const encoded = encodeURIComponent(testName)
 
@@ -274,11 +275,12 @@ export default function TestDetailPage() {
     setAnalysing(true)
     try {
       const token = await getToken()
-      await fetch(`${API_URL}/repos/${repoId}/tests/${encoded}/analyse`, {
+      const res = await fetch(`${API_URL}/repos/${repoId}/tests/${encoded}/analyse`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ filePath }),
       })
+      if (res.status === 403) { setAnalysing(false); router.push('/upgrade'); return }
       pollRef.current = setInterval(async () => {
         const t = await getToken()
         const res = await fetch(
@@ -308,6 +310,7 @@ export default function TestDetailPage() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ filePath }),
       })
+      if (res.status === 403) { router.push('/upgrade'); return }
       const json = await res.json()
       setPrUrl(json.prUrl || json.url || null)
       setShowModal(false)
