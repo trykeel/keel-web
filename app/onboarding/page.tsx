@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { useUser, useAuth, useSession } from '@clerk/nextjs'
+import { useUser, useAuth } from '@clerk/nextjs'
 import {
   Check, Copy, ArrowRight, Loader2, KeyRound,
   CheckCircle2, Github, AlertCircle, GitBranch, Lock, Search,
@@ -45,7 +45,6 @@ function OnboardingInner() {
   const searchParams = useSearchParams()
   const { user, isLoaded } = useUser()
   const { getToken } = useAuth()
-  const { session } = useSession()
 
   const [checking, setChecking] = useState(true)
   const [step, setStep] = useState<'connect' | 'repo' | 'branches' | 'submitting' | 'success' | 'already'>('connect')
@@ -558,10 +557,7 @@ function OnboardingInner() {
               </div>
 
               <button
-                onClick={async () => {
-                  await session?.reload()
-                  router.push('/dashboard')
-                }}
+                onClick={() => router.push('/dashboard')}
                 className="flex items-center justify-center gap-2 py-3 rounded-xl bg-white text-black text-[14px] font-semibold hover:bg-zinc-100 transition-colors"
               >
                 Go to dashboard <ArrowRight size={14} />

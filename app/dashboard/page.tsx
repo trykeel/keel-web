@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useClerk, useUser } from '@clerk/nextjs'
+import { useClerk, useUser, useAuth } from '@clerk/nextjs'
 import {
   LayoutDashboard, TrendingUp, DollarSign, Settings, Key,
   ChevronsLeft, ChevronDown, ChevronRight, LogOut, Search,
@@ -35,22 +36,11 @@ function rateTone(r: number) {
 }
 
 /* ────────── sidebar ────────── */
-const TRIAL_MS = 14 * 24 * 60 * 60 * 1000
-
-function trialDaysLeft(trialStartedAt: string | undefined): number | null {
-  if (!trialStartedAt) return null
-  const end = new Date(new Date(trialStartedAt).getTime() + TRIAL_MS)
-  const ms = end.getTime() - Date.now()
-  return ms > 0 ? Math.ceil(ms / (24 * 60 * 60 * 1000)) : 0
-}
-
-function Sidebar() {
+function Sidebar({ plan, trialDaysLeft }: { plan: 'starter' | 'team' | 'trialing'; trialDaysLeft: number }) {
   const { user } = useUser()
   const [upgrading, setUpgrading] = useState(false)
 
-  const meta = user?.publicMetadata as { plan?: string; trialStartedAt?: string } | undefined
-  const plan = meta?.plan === 'team' ? 'team' : 'starter'
-  const daysLeft = plan !== 'team' ? trialDaysLeft(meta?.trialStartedAt) : null
+  const daysLeft = plan === 'trialing' ? trialDaysLeft : null
 
   async function handleUpgrade() {
     const orgId = localStorage.getItem('keelOrgId')
@@ -456,18 +446,24 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
 
 /* ────────── page ────────── */
 export default function DashboardPage() {
+  const router = useRouter()
+  const { getToken } = useAuth()
+  const [plan, setPlan] = useState<'starter' | 'team' | 'trialing'>('trialing')
+  const [trialDaysLeft, setTrialDaysLeft] = useState(0)
+  const [checking, setChecking] = useState(true)
+  const [initRetry, setInitRetry] = useState(0)
   const [tests, setTests] = useState<TestRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [query, setQuery] = useState('')
   const [orgName, setOrgName] = useState('')
   const [repoName, setRepoName] = useState('')
+  const [repoId, setRepoId] = useState('')
 
-  function load() {
+  function load(rid: string) {
     setLoading(true)
     setError(false)
-    const repoId = localStorage.getItem('keelRepoId')
-    fetch(`${API_URL}/repos/${repoId}/tests`)
+    fetch(`${API_URL}/repos/${rid}/tests`)
       .then(r => { if (!r.ok) throw new Error(); return r.json() })
       .then(json => setTests(Array.isArray(json) ? json : json.tests ?? []))
       .catch(() => setError(true))
@@ -475,20 +471,66 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
-    if (!localStorage.getItem('keelOrgId')) {
-      window.location.replace('/onboarding')
-      return
+    async function init() {
+      try {
+        const token = await getToken()
+        if (!token) { router.replace('/sign-in'); return }
+
+        const res = await fetch(`${API_URL}/billing/plan`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!res.ok) throw new Error(`${res.status}`)
+        const data = await res.json()
+
+        if (!data.onboarded) { router.replace('/onboarding'); return }
+
+        const hasAccess = data.plan === 'team' || (data.plan === 'trialing' && data.trialDaysLeft > 0)
+        if (!hasAccess) { router.replace('/upgrade'); return }
+
+        if (!data.repoId || !data.orgName || !data.repoName) {
+          throw new Error('incomplete org data from server')
+        }
+        if (data.plan === 'trialing' && typeof data.trialDaysLeft !== 'number') {
+          throw new Error('missing trialDaysLeft for trialing plan')
+        }
+        setPlan(data.plan)
+        setTrialDaysLeft(data.trialDaysLeft)
+        setOrgName(data.orgName)
+        setRepoName(data.repoName)
+        setRepoId(data.repoId)
+        setChecking(false)
+        load(data.repoId)
+      } catch {
+        setChecking(false)
+        setError(true)
+      }
     }
-    setOrgName(localStorage.getItem('keelOrgName') || 'your-org')
-    setRepoName(localStorage.getItem('keelRepoName') || 'your-repo')
-    load()
-  }, [])
+    init()
+  }, [getToken, router, initRetry])
+
+  if (checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#08080b]">
+        {error
+          ? <div className="flex flex-col items-center gap-3 text-center">
+              <AlertCircle size={20} className="text-red-400" />
+              <p className="text-[13px] text-zinc-500">Could not reach the server.</p>
+              <button onClick={() => { setError(false); setChecking(true); setInitRetry(n => n + 1) }}
+                className="text-[12px] text-zinc-400 hover:text-zinc-200 underline underline-offset-2">
+                Retry
+              </button>
+            </div>
+          : <Loader2 size={20} className="text-zinc-600 animate-spin" />
+        }
+      </div>
+    )
+  }
 
   const flakyCount = tests.filter(t => t.flakinessRate > 0.05).length
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#08080b] text-white">
-      <Sidebar />
+      <Sidebar plan={plan} trialDaysLeft={trialDaysLeft} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopBar orgName={orgName} repoName={repoName} />
         <div className="flex-1 overflow-y-auto px-7 py-6">
@@ -497,7 +539,7 @@ export default function DashboardPage() {
             {loading ? (
               <LoadingSkeleton />
             ) : error ? (
-              <ErrorState onRetry={load} />
+              <ErrorState onRetry={() => load(repoId)} />
             ) : tests.length === 0 ? (
               <EmptyState />
             ) : (
