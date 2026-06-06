@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
-import { useClerk, useUser } from '@clerk/nextjs'
+import { useClerk, useUser, useAuth } from '@clerk/nextjs'
 import {
   LayoutDashboard, TrendingUp, DollarSign, Settings, Key,
   ChevronsLeft, ChevronDown, ChevronRight, LogOut, Search,
@@ -46,6 +46,7 @@ function trialDaysLeft(trialStartedAt: string | undefined): number | null {
 
 function Sidebar() {
   const { user } = useUser()
+  const { getToken } = useAuth()
   const [upgrading, setUpgrading] = useState(false)
 
   const meta = user?.publicMetadata as { plan?: string; trialStartedAt?: string } | undefined
@@ -57,9 +58,10 @@ function Sidebar() {
     if (!orgId) return
     setUpgrading(true)
     try {
+      const token = await getToken()
       const res = await fetch(`${API_URL}/billing/checkout`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ orgId, email: user?.primaryEmailAddress?.emailAddress ?? '' }),
       })
       const data = await res.json()
