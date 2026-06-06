@@ -86,14 +86,19 @@ export default function SettingsPage() {
   const orgName = typeof window !== 'undefined' ? localStorage.getItem('keelOrgName') || '—' : '—'
   const repoName = typeof window !== 'undefined' ? localStorage.getItem('keelRepoName') || '—' : '—'
 
-  function loadKeys() {
+  async function loadKeys() {
     if (!orgId) return
     setKeysLoading(true); setKeysError(false)
-    fetch(`${API_URL}/api-keys?orgId=${orgId}`)
-      .then(r => { if (!r.ok) throw new Error(); return r.json() })
-      .then(d => setKeys(d.keys ?? []))
-      .catch(() => setKeysError(true))
-      .finally(() => setKeysLoading(false))
+    try {
+      const token = await getToken()
+      const r = await fetch(`${API_URL}/api-keys?orgId=${orgId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!r.ok) throw new Error()
+      const d = await r.json()
+      setKeys(d.keys ?? [])
+    } catch { setKeysError(true) }
+    finally { setKeysLoading(false) }
   }
 
   useEffect(() => { loadKeys() }, [orgId])

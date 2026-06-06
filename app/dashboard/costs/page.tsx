@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useClerk, useUser } from '@clerk/nextjs'
+import { useClerk, useUser, useAuth } from '@clerk/nextjs'
 import {
   ChevronDown, LogOut, DollarSign, TrendingUp,
   Loader2, AlertCircle, RefreshCw, GitBranch,
@@ -57,14 +57,21 @@ export default function CostsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
-  function load() {
+  const { getToken } = useAuth()
+
+  async function load() {
     setLoading(true); setError(false)
-    const repoId = localStorage.getItem('keelRepoId')
-    fetch(`${API_URL}/repos/${repoId}/tests`)
-      .then(r => { if (!r.ok) throw new Error(); return r.json() })
-      .then(json => setTests(Array.isArray(json) ? json : json.tests ?? []))
-      .catch(() => setError(true))
-      .finally(() => setLoading(false))
+    try {
+      const repoId = localStorage.getItem('keelRepoId')
+      const token = await getToken()
+      const r = await fetch(`${API_URL}/repos/${repoId}/tests`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!r.ok) throw new Error()
+      const json = await r.json()
+      setTests(Array.isArray(json) ? json : json.tests ?? [])
+    } catch { setError(true) }
+    finally { setLoading(false) }
   }
 
   useEffect(() => { load() }, [])

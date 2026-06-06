@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
+import { useAuth } from '@clerk/nextjs'
 import Link from 'next/link'
 import {
   ArrowLeft, FileText, Clock, GitCommit, GitBranch,
@@ -243,6 +244,7 @@ export default function TestDetailPage() {
   const [prUrl, setPrUrl] = useState<string | null>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  const { getToken } = useAuth()
   const repoId = typeof window !== 'undefined' ? localStorage.getItem('keelRepoId') : null
   const encoded = encodeURIComponent(testName)
 
@@ -251,7 +253,10 @@ export default function TestDetailPage() {
     let cancelled = false
     async function load() {
       try {
-        const res = await fetch(`${API_URL}/repos/${repoId}/tests/${encoded}?filePath=${encodeURIComponent(filePath)}`)
+        const token = await getToken()
+        const res = await fetch(`${API_URL}/repos/${repoId}/tests/${encoded}?filePath=${encodeURIComponent(filePath)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
         if (res.status === 404) { if (!cancelled) { setNotFound(true); setLoading(false) } return }
         if (!res.ok) throw new Error(`${res.status}`)
         const json: TestDetail = await res.json()
@@ -268,13 +273,18 @@ export default function TestDetailPage() {
   const runAnalysis = useCallback(async () => {
     setAnalysing(true)
     try {
+      const token = await getToken()
       await fetch(`${API_URL}/repos/${repoId}/tests/${encoded}/analyse`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ filePath }),
       })
       pollRef.current = setInterval(async () => {
-        const res = await fetch(`${API_URL}/repos/${repoId}/tests/${encoded}/analysis?filePath=${encodeURIComponent(filePath)}`)
+        const t = await getToken()
+        const res = await fetch(
+          `${API_URL}/repos/${repoId}/tests/${encoded}/analysis?filePath=${encodeURIComponent(filePath)}`,
+          { headers: { Authorization: `Bearer ${t}` } },
+        )
         if (res.ok) {
           const analysis: Analysis = await res.json()
           if (analysis && analysis.rootCauseType) {
@@ -287,14 +297,15 @@ export default function TestDetailPage() {
     } catch {
       setAnalysing(false)
     }
-  }, [repoId, encoded, filePath])
+  }, [repoId, encoded, filePath, getToken])
 
   async function confirmQuarantine() {
     setQuarantining(true)
     try {
+      const token = await getToken()
       const res = await fetch(`${API_URL}/repos/${repoId}/tests/${encoded}/quarantine`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ filePath }),
       })
       const json = await res.json()
