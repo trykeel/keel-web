@@ -405,9 +405,6 @@ export default function DashboardPage() {
 
         if (!data.onboarded) { router.replace('/onboarding'); return }
 
-        const hasAccess = data.plan === 'team' || (data.plan === 'trialing' && data.trialDaysLeft > 0)
-        if (!hasAccess) { router.replace('/upgrade'); return }
-
         if (!data.repoId || !data.orgName || !data.repoName) {
           throw new Error('incomplete org data from server')
         }
