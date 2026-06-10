@@ -25,6 +25,7 @@ export default function Sidebar() {
   const [upgrading, setUpgrading] = useState(false)
   const [plan, setPlan] = useState<'starter' | 'team' | 'trialing'>('trialing')
   const [daysLeft, setDaysLeft] = useState<number | null>(null)
+  const [orgId, setOrgId] = useState('')
 
   useEffect(() => {
     async function fetchPlan() {
@@ -36,6 +37,7 @@ export default function Sidebar() {
         const data = await res.json()
         if (data.plan) setPlan(data.plan)
         if (data.plan === 'trialing') setDaysLeft(data.trialDaysLeft ?? null)
+        if (data.orgId) setOrgId(data.orgId)
       } catch {}
     }
     fetchPlan()
@@ -46,7 +48,6 @@ export default function Sidebar() {
   }
 
   async function handleUpgrade() {
-    const orgId = localStorage.getItem('keelOrgId')
     if (!orgId) return
     setUpgrading(true)
     try {

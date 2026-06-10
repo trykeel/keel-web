@@ -415,6 +415,7 @@ export default function DashboardPage() {
         load(data.repoId)
       } catch {
         setChecking(false)
+        setLoading(false)
         setError(true)
       }
     }
