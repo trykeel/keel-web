@@ -24,6 +24,8 @@ type TestRow = {
   hasAnalysis: boolean
 }
 
+type RepoOption = { id: string; name: string }
+
 /* ────────── helpers ────────── */
 function fmtDate(iso: string | null) {
   if (!iso) return '—'
@@ -36,17 +38,46 @@ function rateTone(r: number) {
 }
 
 
-function TopBar({ orgName, repoName }: { orgName: string; repoName: string }) {
+function TopBar({ orgName, repoName, repos, onRepoChange }: {
+  orgName: string
+  repoName: string
+  repos: RepoOption[]
+  onRepoChange: (repo: RepoOption) => void
+}) {
   const { signOut } = useClerk()
   const { user } = useUser()
+  const [open, setOpen] = useState(false)
+
   return (
     <div className="h-16 shrink-0 border-b border-white/[0.06] flex items-center justify-between px-7 bg-[#08080b]">
       <div />
-      <div className="flex items-center gap-2 font-mono text-[12px] bg-[#101016] border border-white/[0.08] rounded-lg px-3.5 py-1.5">
-        <span className="text-zinc-400">{orgName}</span>
-        <span className="text-zinc-700">/</span>
-        <span className="text-white font-medium">{repoName}</span>
-        <ChevronDown size={12} className="text-zinc-600 ml-1" />
+      <div className="relative">
+        <button
+          onClick={() => setOpen(o => !o)}
+          className="flex items-center gap-2 font-mono text-[12px] bg-[#101016] border border-white/[0.08] hover:border-white/[0.16] rounded-lg px-3.5 py-1.5 transition-colors"
+        >
+          <span className="text-zinc-400">{orgName}</span>
+          <span className="text-zinc-700">/</span>
+          <span className="text-white font-medium">{repoName}</span>
+          <ChevronDown size={12} className={`text-zinc-600 ml-1 transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+        {open && repos.length > 1 && (
+          <div className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 min-w-[200px] bg-[#13131a] border border-white/[0.1] rounded-xl shadow-xl overflow-hidden z-50">
+            {repos.map(r => (
+              <button
+                key={r.id}
+                onClick={() => { onRepoChange(r); setOpen(false) }}
+                className={`w-full text-left px-4 py-2.5 font-mono text-[12px] hover:bg-white/[0.05] transition-colors flex items-center gap-2 ${
+                  r.name === repoName ? 'text-white' : 'text-zinc-400'
+                }`}
+              >
+                {r.name === repoName && <Check size={11} className="text-blue-400 shrink-0" />}
+                {r.name !== repoName && <span className="w-[11px] shrink-0" />}
+                {r.name}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       <div className="flex items-center gap-4">
         {user?.imageUrl
@@ -372,6 +403,7 @@ export default function DashboardPage() {
   const [orgName, setOrgName] = useState('')
   const [repoName, setRepoName] = useState('')
   const [repoId, setRepoId] = useState('')
+  const [repos, setRepos] = useState<RepoOption[]>([])
 
   async function load(repoId: string) {
     setLoading(true)
@@ -411,6 +443,7 @@ export default function DashboardPage() {
         setOrgName(data.orgName)
         setRepoName(data.repoName)
         setRepoId(data.repoId)
+        setRepos(data.repos ?? [])
         setChecking(false)
         load(data.repoId)
       } catch {
@@ -446,7 +479,12 @@ export default function DashboardPage() {
     <div className="flex h-screen overflow-hidden bg-[#08080b] text-white">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <TopBar orgName={orgName} repoName={repoName} />
+        <TopBar
+          orgName={orgName}
+          repoName={repoName}
+          repos={repos}
+          onRepoChange={repo => { setRepoName(repo.name); setRepoId(repo.id); load(repo.id) }}
+        />
         <div className="flex-1 overflow-y-auto px-7 py-6">
           <div className="max-w-[1180px] mx-auto flex flex-col gap-5">
             <Tabs flakyCount={flakyCount} />
