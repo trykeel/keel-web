@@ -9,7 +9,7 @@ import {
   Check, X, ChevronDown, ArrowRight,
   Zap, Brain, DollarSign, GitPullRequest, TrendingUp,
   BookOpen, ScrollText, Github, FileText, Users, Mail,
-  LayoutDashboard, Settings, LogOut,
+  LogOut,
 } from 'lucide-react'
 
 /* ─────────────────────── helpers ─────────────────────── */
@@ -81,7 +81,7 @@ function Spotlight() {
 const NAV_MENUS = [
   { label: 'Product', items: [
     { icon: TrendingUp,     label: 'Flaky detection',    desc: 'Find non-deterministic tests across CI' },
-    { icon: Brain,          label: 'AI root cause',      desc: 'Claude explains why every test flakes' },
+    { icon: Brain,          label: 'AI root cause',      desc: 'AI explains why every test flakes' },
     { icon: DollarSign,     label: 'Cost estimator',     desc: 'Dollar cost per flake, per year' },
     { icon: GitPullRequest, label: 'Auto-quarantine PR', desc: 'Fix PRs opened automatically' },
   ]},
@@ -222,23 +222,21 @@ function Hero() {
 
         {/* editorial headline */}
         <h1 className="text-center mb-10">
-          {['Flaky tests', null, null].map((_, i) => null)}
           <motion.span
             initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.06, ease: [0.21, 0.47, 0.32, 0.98] }}
             className="block text-[clamp(56px,10vw,150px)] font-black tracking-[-0.055em] leading-[0.92]"
           >
-            Flaky tests
+            Know exactly
           </motion.span>
           <motion.span
             initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.14, ease: [0.21, 0.47, 0.32, 0.98] }}
             className="block text-[clamp(56px,10vw,150px)] font-black tracking-[-0.055em] leading-[0.92]"
           >
-            cost you{' '}
             <span className="serif-italic text-transparent bg-clip-text"
               style={{ backgroundImage: 'linear-gradient(120deg, #fff 0%, #93c5fd 50%, #fff 100%)' }}>
-              two hundred
+              which tests
             </span>
           </motion.span>
           <motion.span
@@ -246,9 +244,7 @@ function Hero() {
             transition={{ duration: 0.7, delay: 0.22, ease: [0.21, 0.47, 0.32, 0.98] }}
             className="block text-[clamp(56px,10vw,150px)] font-black tracking-[-0.055em] leading-[0.92]"
           >
-            <span className="serif-italic text-transparent bg-clip-text"
-              style={{ backgroundImage: 'linear-gradient(120deg, #93c5fd, #fff 70%)' }}>thousand</span>
-            <span> dollars.</span>
+            break your builds.
           </motion.span>
         </h1>
 
@@ -257,7 +253,7 @@ function Hero() {
           className="grid sm:grid-cols-[1fr_auto_1fr] items-start gap-8 max-w-4xl mx-auto"
         >
           <p className="text-[15px] text-zinc-400 leading-relaxed sm:text-right sm:pr-4 sm:border-r sm:border-white/[0.08]">
-            Keel watches every CI run, flags non-deterministic tests, and uses Claude to explain exactly why they fail.
+            Keel watches every CI run, flags non-deterministic tests, and explains exactly why they fail.
           </p>
           <div className="hidden sm:block w-px h-full bg-white/[0.06] -mx-3" />
           <p className="text-[15px] text-zinc-400 leading-relaxed sm:pl-4">
@@ -275,7 +271,6 @@ function Hero() {
           <Link href="https://github.com/trykeel/keel-action" className="inline-flex items-center gap-2 text-white font-medium px-7 py-3 rounded-full text-[14px] hover:bg-white/[0.06] transition-colors border border-white/[0.1]">
             <Github size={14} />
             <span>trykeel/keel-action</span>
-            <span className="text-zinc-500 font-mono text-[11px] ml-1">★ 4.2k</span>
           </Link>
         </motion.div>
 
@@ -433,45 +428,6 @@ function SetupSection() {
 }
 
 /* ─────────────────────── dashboard preview ─────────────────────── */
-type FakeTest = { name: string; rate: number; cost: number; sev: 'high' | 'med' | 'low'; runs: number }
-
-const FAKE_TESTS: FakeTest[] = [
-  { name: 'UserAuth › login with SSO',  rate: 34, cost: 18200, sev: 'high', runs: 412 },
-  { name: 'Checkout › payment timeout', rate: 21, cost: 11400, sev: 'high', runs: 388 },
-  { name: 'API › rate limit retry',     rate: 12, cost:  6500, sev: 'med',  runs: 521 },
-  { name: 'Email › delivery webhook',   rate:  7, cost:  3800, sev: 'low',  runs: 277 },
-  { name: 'Reports › PDF generation',   rate:  4, cost:  2100, sev: 'low',  runs: 198 },
-]
-
-function AnimatedBars({ data }: { data: FakeTest[] }) {
-  const max = Math.max(...data.map(d => d.rate))
-  return (
-    <div className="flex items-end gap-3 h-32 px-1">
-      {data.map((d, i) => (
-        <div key={i} className="flex-1 flex flex-col items-center gap-2">
-          <div className="w-full flex flex-col-reverse" style={{ height: 110 }}>
-            <motion.div
-              initial={{ scaleY: 0 }}
-              whileInView={{ scaleY: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.8, delay: i * 0.12, ease: [0.21, 0.85, 0.32, 0.99] }}
-              className="w-full rounded-t origin-bottom"
-              style={{
-                height: `${(d.rate / max) * 100}%`,
-                background:
-                  d.sev === 'high' ? 'linear-gradient(180deg,#f87171,#ef4444)'
-                  : d.sev === 'med' ? 'linear-gradient(180deg,#fbbf24,#f59e0b)'
-                                    : 'linear-gradient(180deg,#34d399,#10b981)',
-              }}
-            />
-          </div>
-          <span className="font-mono text-[10px] text-zinc-600">{d.rate}%</span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
 function DashboardPreview() {
   return (
     <section className="py-32 border-t border-white/[0.04]">
@@ -506,87 +462,8 @@ function DashboardPreview() {
               <div className="w-3 h-3 rounded-full bg-zinc-800" />
             </div>
 
-            <div className="grid grid-cols-[180px_1fr]">
-              {/* sidebar */}
-              <div className="border-r border-white/[0.05] p-4 flex flex-col gap-1 bg-[#0b0b0f]">
-                <div className="flex items-center gap-2 px-2 py-2 mb-3">
-                  <span className="font-black text-[18px] tracking-tighter">Keel</span>
-                </div>
-                {([
-                  [LayoutDashboard, 'Dashboard', true],
-                  [TrendingUp,      'Tests',     false],
-                  [DollarSign,      'Costs',     false],
-                  [Settings,        'Settings',  false],
-                ] as const).map(([Ic, label, active]) => (
-                  <div key={label} className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[12px] ${active ? 'bg-blue-500/10 text-blue-300' : 'text-zinc-600'}`}>
-                    <Ic size={13} />{label}
-                  </div>
-                ))}
-                <div className="mt-auto pt-4 border-t border-white/[0.04] font-mono text-[10px] text-zinc-700 truncate">acme-corp / api-service</div>
-              </div>
-
-              <div className="p-7 flex flex-col gap-5">
-                <div className="grid grid-cols-3 gap-4">
-                  {[
-                    { label: 'Flaky',       val: 5,     color: 'text-red-400',   tone: 'rgba(239,68,68,0.08)' },
-                    { label: 'Tracked',     val: 1284,  color: 'text-blue-300',  tone: 'rgba(59,130,246,0.08)' },
-                    { label: 'Annual cost', val: 42000, color: 'text-amber-300', tone: 'rgba(245,158,11,0.08)', prefix: '$' },
-                  ].map(c => (
-                    <div key={c.label} className="rounded-xl p-4 border border-white/[0.05]" style={{ background: c.tone }}>
-                      <div className="font-mono text-[10px] tracking-[0.18em] uppercase text-zinc-500 mb-2">{c.label}</div>
-                      <div className={`text-[28px] font-black tabular-nums ${c.color}`}>
-                        <CountUp to={c.val} prefix={c.prefix || ''} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="rounded-xl p-5 border border-white/[0.05] bg-[#0d0d12]">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="font-mono text-[10px] tracking-[0.18em] uppercase text-zinc-500">Flakiness rate by test</div>
-                    <div className="flex items-center gap-3 font-mono text-[10px] text-zinc-600">
-                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-red-500" />HIGH</span>
-                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-amber-500" />MED</span>
-                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-500" />LOW</span>
-                    </div>
-                  </div>
-                  <AnimatedBars data={FAKE_TESTS} />
-                </div>
-
-                <div className="rounded-xl border border-white/[0.05] bg-[#0d0d12] overflow-hidden">
-                  <div className="px-5 py-3 border-b border-white/[0.05] flex items-center justify-between">
-                    <div className="font-mono text-[10px] tracking-[0.18em] uppercase text-zinc-500">Flaky tests · sorted by cost</div>
-                    <div className="text-[10px] text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full font-mono">5 FLAKY</div>
-                  </div>
-                  <table className="w-full text-[12px]">
-                    <thead>
-                      <tr className="border-b border-white/[0.04] font-mono text-[10px] tracking-[0.16em] uppercase text-zinc-600">
-                        <th className="px-5 py-2.5 text-left font-normal">Test</th>
-                        <th className="px-5 py-2.5 text-left font-normal">Rate</th>
-                        <th className="px-5 py-2.5 text-left font-normal">Runs</th>
-                        <th className="px-5 py-2.5 text-left font-normal">Cost / yr</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {FAKE_TESTS.map((t, i) => (
-                        <tr key={i} className="border-t border-white/[0.03] hover:bg-white/[0.02] transition-colors">
-                          <td className="px-5 py-2.5 font-mono text-zinc-300 truncate max-w-[260px]">{t.name}</td>
-                          <td className="px-5 py-2.5">
-                            <span className={`font-mono text-[11px] px-1.5 py-0.5 rounded ${
-                              t.sev === 'high' ? 'bg-red-500/10 text-red-400'
-                              : t.sev === 'med' ? 'bg-amber-500/10 text-amber-400'
-                              : 'bg-emerald-500/10 text-emerald-400'
-                            }`}>{t.rate}%</span>
-                          </td>
-                          <td className="px-5 py-2.5 font-mono text-zinc-500 tabular-nums">{t.runs}</td>
-                          <td className="px-5 py-2.5 font-mono text-amber-300 font-semibold tabular-nums">${t.cost.toLocaleString()}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/dashboard.png" alt="Keel dashboard" className="w-full block" />
           </div>
         </FadeUp>
 
@@ -702,11 +579,11 @@ function FeaturesBento() {
                 </div>
                 <h3 className="text-[28px] font-black tracking-[-0.03em] leading-tight mb-3">Understand exactly why tests flake.</h3>
                 <p className="text-[14px] text-zinc-500 leading-relaxed mb-6 max-w-md">
-                  Claude reads your failure logs and classifies the root cause — race condition, timing issue,
+                  AI reads your failure logs and classifies the root cause — race condition, timing issue,
                   network dependency, or environmental drift. Not just &ldquo;this test is flaky.&rdquo;
                 </p>
                 <div className="rounded-xl bg-black/40 border border-white/[0.06] p-4 font-mono text-[12px] leading-relaxed">
-                  <div className="text-zinc-600 mb-1.5"># claude on UserAuth › login with SSO</div>
+                  <div className="text-zinc-600 mb-1.5"># ai on UserAuth › login with SSO</div>
                   <div className="text-zinc-300">
                     <span className="text-blue-300">→</span> race condition: cookie write
                     races with redirect on slow CI runners
