@@ -24,11 +24,11 @@ const instrumentSerif = Instrument_Serif({
 })
 
 export const metadata: Metadata = {
-  title: 'Keel — Stop losing $200k/year to flaky tests',
+  title: 'Keel',
   description:
     'Keel finds flaky tests, explains why they fail using AI, and opens the fix PR automatically.',
   openGraph: {
-    title: 'Keel — AI-powered flaky test detection',
+    title: 'Keel',
     description: 'Find, diagnose, and fix flaky tests automatically.',
     url: 'https://trykeel.vercel.app',
     siteName: 'Keel',
