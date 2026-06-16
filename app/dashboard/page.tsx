@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useClerk, useUser, useAuth } from '@clerk/nextjs'
 import {
   ChevronDown, ChevronRight, LogOut, Search,
-  Sparkles, Check, Loader2, AlertCircle, RefreshCw, GitBranch,
+  Sparkles, Check, Loader2, AlertCircle, RefreshCw, GitBranch, Plus, X, ArrowUpRight,
 } from 'lucide-react'
 import { DonutGauge, HealthRings } from './charts'
 import Sidebar from './sidebar'
@@ -38,15 +38,25 @@ function rateTone(r: number) {
 }
 
 
-function TopBar({ orgName, repoName, repos, onRepoChange }: {
+function repoLimit(plan: string) {
+  return plan === 'starter' ? 1 : 3
+}
+
+function TopBar({ orgName, repoName, repos, plan, onRepoChange, onAddRepo }: {
   orgName: string
   repoName: string
   repos: RepoOption[]
+  plan: string
   onRepoChange: (repo: RepoOption) => void
+  onAddRepo: () => void
 }) {
   const { signOut } = useClerk()
   const { user } = useUser()
   const [open, setOpen] = useState(false)
+
+  const canAdd = repos.length < repoLimit(plan)
+  const atLimit = !canAdd && plan === 'starter'
+  const showDropdown = open && (repos.length > 1 || canAdd || atLimit)
 
   return (
     <div className="h-16 shrink-0 border-b border-white/[0.06] flex items-center justify-between px-7 bg-[#08080b]">
@@ -61,7 +71,7 @@ function TopBar({ orgName, repoName, repos, onRepoChange }: {
           <span className="text-white font-medium">{repoName}</span>
           <ChevronDown size={12} className={`text-zinc-600 ml-1 transition-transform ${open ? 'rotate-180' : ''}`} />
         </button>
-        {open && repos.length > 1 && (
+        {showDropdown && (
           <div className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 min-w-[200px] bg-[#13131a] border border-white/[0.1] rounded-xl shadow-xl overflow-hidden z-50">
             {repos.map(r => (
               <button
@@ -76,6 +86,23 @@ function TopBar({ orgName, repoName, repos, onRepoChange }: {
                 {r.name}
               </button>
             ))}
+            <div className="border-t border-white/[0.06]">
+              {canAdd ? (
+                <button
+                  onClick={() => { setOpen(false); onAddRepo() }}
+                  className="w-full text-left px-4 py-2.5 font-mono text-[12px] text-blue-400 hover:bg-white/[0.05] transition-colors flex items-center gap-2"
+                >
+                  <Plus size={11} className="shrink-0" />Add repo
+                </button>
+              ) : (
+                <a
+                  href="/upgrade"
+                  className="w-full text-left px-4 py-2.5 font-mono text-[12px] text-zinc-500 hover:bg-white/[0.05] transition-colors flex items-center gap-2"
+                >
+                  <ArrowUpRight size={11} className="shrink-0" />Upgrade for more repos
+                </a>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -90,6 +117,152 @@ function TopBar({ orgName, repoName, repos, onRepoChange }: {
         >
           <LogOut size={13} />Sign out
         </button>
+      </div>
+    </div>
+  )
+}
+
+type GHRepo = { id: number; name: string; fullName: string; defaultBranch: string }
+
+function AddRepoModal({ token, orgId, onDone, onClose }: {
+  token: string
+  orgId: string
+  onDone: (repo: RepoOption, apiKey: string) => void
+  onClose: () => void
+}) {
+  const [step, setStep] = useState<'pick' | 'confirm' | 'done'>('pick')
+  const [ghRepos, setGhRepos] = useState<GHRepo[]>([])
+  const [loadingRepos, setLoadingRepos] = useState(true)
+  const [search, setSearch] = useState('')
+  const [selected, setSelected] = useState<GHRepo | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [apiKey, setApiKey] = useState('')
+  const [newRepo, setNewRepo] = useState<RepoOption | null>(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch(`${API_URL}/api/github/repos`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!res.ok) throw new Error()
+        const data = await res.json()
+        setGhRepos(data.repos ?? [])
+      } catch {
+        setError('Failed to load GitHub repos. Try refreshing.')
+      } finally {
+        setLoadingRepos(false)
+      }
+    }
+    load()
+  }, [token])
+
+  async function submit() {
+    if (!selected) return
+    setSubmitting(true)
+    setError('')
+    try {
+      const res = await fetch(`${API_URL}/repos`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          githubRepoId: selected.id,
+          repoName: selected.name,
+          repoFullName: selected.fullName,
+          defaultBranch: selected.defaultBranch,
+          watchedBranches: [selected.defaultBranch],
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        if (data.error === 'repo_limit_reached') setError('Plan limit reached — upgrade to add more repos.')
+        else if (data.error === 'repo already connected to another account') setError('This repo is already connected to another Keel account.')
+        else setError(data.error ?? 'Something went wrong.')
+        return
+      }
+      setApiKey(data.apiKey ?? '')
+      setNewRepo({ id: data.repoId, name: selected.name })
+      setStep('done')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const filtered = ghRepos.filter(r => r.fullName.toLowerCase().includes(search.toLowerCase()))
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="w-full max-w-md bg-[#13131a] border border-white/[0.1] rounded-2xl shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
+          <span className="font-mono text-[12px] tracking-[0.14em] uppercase text-zinc-400">Add repository</span>
+          <button onClick={onClose} className="text-zinc-600 hover:text-zinc-300 transition-colors"><X size={16} /></button>
+        </div>
+
+        {step === 'pick' && (
+          <div className="p-5 flex flex-col gap-3">
+            <div className="relative">
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600" />
+              <input
+                value={search} onChange={e => setSearch(e.target.value)}
+                placeholder="Search repositories…"
+                className="w-full bg-[#0c0c11] border border-white/[0.08] rounded-lg pl-9 pr-3 py-2 font-mono text-[11px] text-white placeholder:text-zinc-600 outline-none focus:border-blue-500/40 transition-colors"
+              />
+            </div>
+            <div className="max-h-64 overflow-y-auto flex flex-col gap-0.5">
+              {loadingRepos ? (
+                <div className="flex justify-center py-8"><Loader2 size={16} className="text-zinc-600 animate-spin" /></div>
+              ) : filtered.length === 0 ? (
+                <p className="text-center font-mono text-[11px] text-zinc-600 py-8">No repositories found</p>
+              ) : filtered.map(r => (
+                <button
+                  key={r.id}
+                  onClick={() => setSelected(r)}
+                  className={`w-full text-left px-3 py-2.5 rounded-lg font-mono text-[12px] transition-colors flex items-center gap-2 ${
+                    selected?.id === r.id ? 'bg-blue-500/10 text-white border border-blue-500/20' : 'hover:bg-white/[0.04] text-zinc-300'
+                  }`}
+                >
+                  {selected?.id === r.id && <Check size={11} className="text-blue-400 shrink-0" />}
+                  {selected?.id !== r.id && <span className="w-[11px] shrink-0" />}
+                  <span className="truncate">{r.fullName}</span>
+                  <span className="ml-auto font-mono text-[10px] text-zinc-600 shrink-0">{r.defaultBranch}</span>
+                </button>
+              ))}
+            </div>
+            {error && <p className="font-mono text-[11px] text-red-400">{error}</p>}
+            <button
+              onClick={submit}
+              disabled={!selected || submitting}
+              className="mt-1 w-full py-2.5 rounded-xl font-mono text-[12px] font-medium text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ background: 'linear-gradient(120deg, rgba(59,130,246,0.9), rgba(139,92,246,0.9))' }}
+            >
+              {submitting ? <Loader2 size={14} className="animate-spin mx-auto" /> : 'Connect repository'}
+            </button>
+          </div>
+        )}
+
+        {step === 'done' && newRepo && (
+          <div className="p-5 flex flex-col gap-4">
+            <div className="flex flex-col gap-1">
+              <p className="font-mono text-[12px] text-zinc-300"><span className="text-white font-medium">{newRepo.name}</span> connected.</p>
+              <p className="font-mono text-[11px] text-zinc-500">Save your API key — it won't be shown again.</p>
+            </div>
+            <div className="rounded-xl bg-[#0c0c11] border border-white/[0.08] p-3 flex items-center gap-2">
+              <code className="flex-1 font-mono text-[11px] text-emerald-300 break-all">{apiKey}</code>
+              <button
+                onClick={() => navigator.clipboard.writeText(apiKey)}
+                className="shrink-0 font-mono text-[10px] text-zinc-500 hover:text-zinc-300 border border-white/[0.08] rounded-lg px-2 py-1 transition-colors"
+              >copy</button>
+            </div>
+            <button
+              onClick={() => { if (newRepo) onDone(newRepo, apiKey) }}
+              className="w-full py-2.5 rounded-xl font-mono text-[12px] font-medium text-white"
+              style={{ background: 'linear-gradient(120deg, rgba(59,130,246,0.9), rgba(139,92,246,0.9))' }}
+            >
+              Go to dashboard
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -403,7 +576,11 @@ export default function DashboardPage() {
   const [orgName, setOrgName] = useState('')
   const [repoName, setRepoName] = useState('')
   const [repoId, setRepoId] = useState('')
+  const [orgId, setOrgId] = useState('')
+  const [plan, setPlan] = useState('')
   const [repos, setRepos] = useState<RepoOption[]>([])
+  const [clerkToken, setClerkToken] = useState('')
+  const [showAddRepo, setShowAddRepo] = useState(false)
 
   async function load(repoId: string) {
     setLoading(true)
@@ -443,7 +620,10 @@ export default function DashboardPage() {
         setOrgName(data.orgName)
         setRepoName(data.repoName)
         setRepoId(data.repoId)
+        setOrgId(data.orgId ?? '')
+        setPlan(data.plan ?? '')
         setRepos(data.repos ?? [])
+        setClerkToken(token)
         setChecking(false)
         load(data.repoId)
       } catch {
@@ -483,8 +663,24 @@ export default function DashboardPage() {
           orgName={orgName}
           repoName={repoName}
           repos={repos}
+          plan={plan}
           onRepoChange={repo => { setRepoName(repo.name); setRepoId(repo.id); load(repo.id) }}
+          onAddRepo={() => setShowAddRepo(true)}
         />
+        {showAddRepo && (
+          <AddRepoModal
+            token={clerkToken}
+            orgId={orgId}
+            onDone={(repo, _key) => {
+              setShowAddRepo(false)
+              setRepos(prev => [...prev, repo])
+              setRepoName(repo.name)
+              setRepoId(repo.id)
+              load(repo.id)
+            }}
+            onClose={() => setShowAddRepo(false)}
+          />
+        )}
         <div className="flex-1 overflow-y-auto px-7 py-6">
           <div className="max-w-[1180px] mx-auto flex flex-col gap-5">
             <Tabs flakyCount={flakyCount} />
