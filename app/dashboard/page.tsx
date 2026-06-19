@@ -8,7 +8,7 @@ import {
   ChevronDown, ChevronRight, LogOut, Search,
   Sparkles, Check, Loader2, AlertCircle, RefreshCw, GitBranch, Plus, X, ArrowUpRight,
 } from 'lucide-react'
-import { DonutGauge, HealthRings } from './charts'
+import { DonutGauge, HealthRings, Heatmap } from './charts'
 import Sidebar from './sidebar'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
@@ -280,7 +280,33 @@ function StatCard({ children }: { children: React.ReactNode }) {
   return <div className="rounded-2xl border border-white/[0.07] bg-[#0c0c11] p-5">{children}</div>
 }
 
-function StatsRow({ tests }: { tests: TestRow[] }) {
+function StatsRow({ tests, loading, error }: { tests: TestRow[]; loading?: boolean; error?: boolean }) {
+  if (loading) {
+    return (
+      <div className="grid grid-cols-3 gap-4 animate-pulse">
+        {[0, 1, 2].map(i => (
+          <div key={i} className="rounded-2xl border border-white/[0.07] bg-[#0c0c11] p-5">
+            <div className="h-2.5 w-24 rounded-md bg-white/[0.06] mb-4" />
+            <div className="h-9 w-20 rounded-md bg-white/[0.06] mb-2" />
+            <div className="h-2 w-16 rounded-md bg-white/[0.04]" />
+          </div>
+        ))}
+      </div>
+    )
+  }
+  if (error) {
+    return (
+      <div className="grid grid-cols-3 gap-4">
+        {(['Flaky tests', 'Wasted per year', 'Health score'] as const).map(label => (
+          <StatCard key={label}>
+            <div className="font-mono text-[10px] tracking-[0.16em] uppercase text-zinc-500 mb-2">{label}</div>
+            <span className="text-[44px] font-black tracking-[-0.05em] leading-none text-zinc-700">–</span>
+            <div className="font-mono text-[11px] text-zinc-700 mt-1.5">unavailable</div>
+          </StatCard>
+        ))}
+      </div>
+    )
+  }
   const flaky = tests.filter(t => t.flakinessRate > 0.05).length
   const totalCost = tests.reduce((s, t) => s + t.estimatedCostUsd, 0)
   const flakyPct = Math.round((flaky / Math.max(1, tests.length)) * 100)
@@ -383,11 +409,64 @@ function DetectedRow({ tests, query, setQuery }: { tests: TestRow[]; query: stri
   )
 }
 
-function TestTable({ tests, query }: { tests: TestRow[]; query: string }) {
+function TestTable({ tests, query, loading, error, onRetry }: {
+  tests: TestRow[]
+  query: string
+  loading?: boolean
+  error?: boolean
+  onRetry?: () => void
+}) {
   const rows = useMemo(() => tests.filter(t => t.testName.toLowerCase().includes(query.toLowerCase())), [tests, query])
   const Th = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
     <th className={`px-4 py-3 text-left font-mono text-[10px] tracking-[0.14em] uppercase text-zinc-600 font-normal ${className}`}>{children}</th>
   )
+  if (loading) {
+    return (
+      <div className="rounded-2xl border border-white/[0.07] bg-[#0c0c11] overflow-hidden animate-pulse">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-white/[0.06]">
+              <Th>Test name</Th><Th>File</Th><Th className="w-[180px]">Flakiness</Th>
+              <Th>Runs</Th><Th>Cost / yr</Th><Th>Last failed</Th><Th className="text-center">AI</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {[0, 1, 2, 3, 4].map(i => (
+              <tr key={i} className="border-t border-white/[0.04]">
+                <td className="px-4 py-3"><div className="h-3 w-36 rounded bg-white/[0.06]" /></td>
+                <td className="px-4 py-3"><div className="h-3 w-28 rounded bg-white/[0.04]" /></td>
+                <td className="px-4 py-3"><div className="h-1.5 rounded-full bg-white/[0.06]" /></td>
+                <td className="px-4 py-3"><div className="h-3 w-8 rounded bg-white/[0.04]" /></td>
+                <td className="px-4 py-3"><div className="h-3 w-10 rounded bg-white/[0.04]" /></td>
+                <td className="px-4 py-3"><div className="h-3 w-24 rounded bg-white/[0.04]" /></td>
+                <td className="px-4 py-3 flex justify-center"><div className="h-6 w-12 rounded-lg bg-white/[0.04]" /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+  if (error) {
+    return (
+      <div className="rounded-2xl border border-white/[0.07] bg-[#0c0c11] overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 bg-red-500/[0.06] border-b border-red-500/20">
+          <div className="flex items-center gap-2">
+            <AlertCircle size={13} className="text-red-400 shrink-0" />
+            <span className="font-mono text-[11px] text-red-400">Could not load test data</span>
+          </div>
+          {onRetry && (
+            <button onClick={onRetry} className="flex items-center gap-1.5 font-mono text-[11px] text-zinc-400 hover:text-zinc-200 transition-colors">
+              <RefreshCw size={11} />Retry
+            </button>
+          )}
+        </div>
+        <div className="px-4 py-10 text-center font-mono text-[12px] text-zinc-600">
+          No data to display — check your connection and retry.
+        </div>
+      </div>
+    )
+  }
   return (
     <div className="rounded-2xl border border-white/[0.07] bg-[#0c0c11] overflow-hidden">
       <table className="w-full">
@@ -441,21 +520,57 @@ function TestTable({ tests, query }: { tests: TestRow[]; query: string }) {
   )
 }
 
-function Recommendations({ tests }: { tests: TestRow[] }) {
+function Recommendations({ tests, loading, error }: { tests: TestRow[]; loading?: boolean; error?: boolean }) {
   const [open, setOpen] = useState(true)
   const withAnalysis = [...tests]
     .filter(t => t.hasAnalysis)
     .sort((a, b) => b.flakinessRate - a.flakinessRate)
     .slice(0, 4)
 
+  const header = (
+    <button onClick={() => setOpen(o => !o)} className="w-full flex items-center justify-between px-5 py-3.5 border-b border-white/[0.06]">
+      <span className="flex items-center gap-2 font-mono text-[10px] tracking-[0.16em] uppercase text-zinc-400">
+        <Sparkles size={13} className="text-blue-300" />AI Recommendations
+      </span>
+      <ChevronDown size={14} className={`text-zinc-600 transition-transform ${open ? '' : '-rotate-90'}`} />
+    </button>
+  )
+
+  if (loading) {
+    return (
+      <div className="rounded-2xl border border-white/[0.07] bg-[#0c0c11] overflow-hidden">
+        {header}
+        {open && (
+          <div className="p-3 flex flex-col gap-1 animate-pulse">
+            {[0, 1, 2].map(i => (
+              <div key={i} className="flex items-center gap-3 px-3 py-2.5">
+                <div className="w-3 h-3 rounded-full bg-white/[0.06] shrink-0" />
+                <div className={`h-3 rounded bg-white/[0.06] ${i === 0 ? 'w-3/4' : i === 1 ? 'w-2/3' : 'w-1/2'}`} />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-2xl border border-white/[0.07] bg-[#0c0c11] overflow-hidden">
+        {header}
+        {open && (
+          <div className="flex flex-col items-center gap-2 py-8 text-center px-4">
+            <AlertCircle size={20} className="text-zinc-700" />
+            <p className="text-[12px] text-zinc-600">Analysis unavailable</p>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="rounded-2xl border border-white/[0.07] bg-[#0c0c11] overflow-hidden">
-      <button onClick={() => setOpen(o => !o)} className="w-full flex items-center justify-between px-5 py-3.5 border-b border-white/[0.06]">
-        <span className="flex items-center gap-2 font-mono text-[10px] tracking-[0.16em] uppercase text-zinc-400">
-          <Sparkles size={13} className="text-blue-300" />AI Recommendations
-        </span>
-        <ChevronDown size={14} className={`text-zinc-600 transition-transform ${open ? '' : '-rotate-90'}`} />
-      </button>
+      {header}
       {open && (
         <div className="p-3 flex flex-col">
           {withAnalysis.length === 0 ? (
@@ -486,45 +601,63 @@ function Recommendations({ tests }: { tests: TestRow[] }) {
   )
 }
 
-function StabilityTrends() {
+function StabilityTrends({ loading, error }: { loading?: boolean; error?: boolean }) {
+  const header = (
+    <div className="flex items-center justify-between mb-4">
+      <div>
+        <h3 className="text-[14px] font-bold tracking-tight">Stability trends</h3>
+        <p className="text-[12px] text-zinc-600 mt-1">Historical health and cost over time</p>
+      </div>
+      <div className="flex items-center gap-1 bg-[#08080b] border border-white/[0.08] rounded-lg p-0.5 opacity-40 pointer-events-none">
+        {['7d', '30d', '90d'].map(r => (
+          <button key={r} className="px-2.5 py-1 rounded-md font-mono text-[10px] text-zinc-500">{r}</button>
+        ))}
+      </div>
+    </div>
+  )
   return (
     <div className="rounded-2xl border border-white/[0.07] bg-[#0c0c11] p-5 flex flex-col justify-between">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-[14px] font-bold tracking-tight">Stability trends</h3>
-          <p className="text-[12px] text-zinc-600 mt-1">Historical health and cost over time</p>
+      {header}
+      {loading ? (
+        <div className="rounded-xl bg-white/[0.03] animate-pulse" style={{ height: 120 }} />
+      ) : error ? (
+        <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
+          <AlertCircle size={20} className="text-zinc-700" />
+          <p className="text-[12px] text-zinc-600">Could not load trend data</p>
         </div>
-        <div className="flex items-center gap-1 bg-[#08080b] border border-white/[0.08] rounded-lg p-0.5 opacity-40 pointer-events-none">
-          {['7d', '30d', '90d'].map(r => (
-            <button key={r} className={`px-2.5 py-1 rounded-md font-mono text-[10px] text-zinc-500`}>{r}</button>
-          ))}
+      ) : (
+        <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
+          <GitBranch size={22} className="text-zinc-700" />
+          <p className="text-[12px] text-zinc-500 leading-relaxed max-w-[200px]">
+            Trend data available after<br />7 days of CI runs.
+          </p>
         </div>
-      </div>
-      <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
-        <GitBranch size={22} className="text-zinc-700" />
-        <p className="text-[12px] text-zinc-500 leading-relaxed max-w-[200px]">
-          Trend data available after<br />7 days of CI runs.
-        </p>
-      </div>
+      )}
+    </div>
+  )
+}
+
+function HeatmapStrip({ tests, loading, error }: { tests: TestRow[]; loading?: boolean; error?: boolean }) {
+  if (error) return null
+  const cells: ('high' | 'med' | 'low' | 'none')[] = loading
+    ? Array(28).fill('none')
+    : tests.slice(0, 28).map(t => {
+        const r = t.flakinessRate
+        if (r >= 0.25) return 'high'
+        if (r >= 0.12) return 'med'
+        if (r > 0) return 'low'
+        return 'none'
+      })
+
+  return (
+    <div className={`rounded-2xl border border-white/[0.07] bg-[#0c0c11] p-5 ${loading ? 'animate-pulse' : ''}`}>
+      <div className="font-mono text-[10px] tracking-[0.16em] uppercase text-zinc-500 mb-3">Run heatmap</div>
+      <Heatmap cells={cells} />
     </div>
   )
 }
 
 /* ────────── loading / empty / error states ────────── */
-function LoadingSkeleton() {
-  return (
-    <div className="flex flex-col gap-5 animate-pulse">
-      <div className="grid grid-cols-3 gap-4">
-        {[...Array(3)].map((_, i) => (
-          <div key={i} className="h-28 rounded-2xl bg-white/[0.04]" />
-        ))}
-      </div>
-      <div className="h-8 rounded-xl bg-white/[0.04] w-64" />
-      <div className="h-64 rounded-2xl bg-white/[0.04]" />
-    </div>
-  )
-}
-
 function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center gap-5 py-20 text-center">
@@ -547,26 +680,6 @@ function EmptyState() {
     test-results-path: ./test-results/**/*.xml`}
         </pre>
       </div>
-    </div>
-  )
-}
-
-function ErrorState({ onRetry }: { onRetry: () => void }) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
-      <div className="w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
-        <AlertCircle size={24} className="text-red-400" />
-      </div>
-      <div>
-        <h2 className="text-[18px] font-bold tracking-tight mb-2">Could not load test data</h2>
-        <p className="text-[13px] text-zinc-500">Check your API connection and try again.</p>
-      </div>
-      <button
-        onClick={onRetry}
-        className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-white/[0.1] text-[13px] text-zinc-300 hover:bg-white/[0.05] transition-colors"
-      >
-        <RefreshCw size={13} />Retry
-      </button>
     </div>
   )
 }
@@ -635,7 +748,8 @@ export default function DashboardPage() {
         setChecking(false)
         load(data.repoId)
       } catch {
-        setChecking(false)
+        // Keep checking=true so the checking guard shows the retry UI.
+        // Per-section error tiles only fire on load() failures (after init succeeds).
         setLoading(false)
         setError(true)
       }
@@ -692,20 +806,19 @@ export default function DashboardPage() {
         <div className="flex-1 overflow-y-auto px-7 py-6">
           <div className="max-w-[1180px] mx-auto flex flex-col gap-5">
             <Tabs flakyCount={flakyCount} />
-            {loading ? (
-              <LoadingSkeleton />
-            ) : error ? (
-              <ErrorState onRetry={() => load(repoId)} />
-            ) : tests.length === 0 ? (
+            {!loading && !error && tests.length === 0 ? (
               <EmptyState />
             ) : (
               <>
-                <StatsRow tests={tests} />
-                <DetectedRow tests={tests} query={query} setQuery={setQuery} />
-                <TestTable tests={tests} query={query} />
+                <StatsRow tests={tests} loading={loading} error={error} />
+                <HeatmapStrip tests={tests} loading={loading} error={error} />
+                {!loading && !error && (
+                  <DetectedRow tests={tests} query={query} setQuery={setQuery} />
+                )}
+                <TestTable tests={tests} query={query} loading={loading} error={error} onRetry={() => load(repoId)} />
                 <div className="grid grid-cols-[1fr_1.4fr] gap-5 pb-4">
-                  <Recommendations tests={tests} />
-                  <StabilityTrends />
+                  <Recommendations tests={tests} loading={loading} error={error} />
+                  <StabilityTrends loading={loading} error={error} />
                 </div>
               </>
             )}
