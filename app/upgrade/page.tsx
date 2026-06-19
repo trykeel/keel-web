@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useUser, useAuth } from '@clerk/nextjs'
 import { Zap, Check, Loader2, ArrowLeft } from 'lucide-react'
@@ -21,9 +21,23 @@ export default function UpgradePage() {
   const { getToken } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [orgId, setOrgId] = useState('')
+
+  useEffect(() => {
+    async function fetchOrg() {
+      try {
+        const token = await getToken()
+        const res = await fetch(`${API_URL}/billing/plan`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        const data = await res.json()
+        if (data.orgId) setOrgId(data.orgId)
+      } catch {}
+    }
+    fetchOrg()
+  }, [getToken])
 
   async function handleUpgrade() {
-    const orgId = localStorage.getItem('keelOrgId')
     if (!orgId) {
       setError('No workspace found. Please complete onboarding first.')
       return
