@@ -447,7 +447,7 @@ function OnboardingInner() {
 
                   <div className="flex items-center justify-between text-[11px] text-zinc-600 font-mono -mt-1">
                     <span>{selectedBranches.length}/{branchLimit} branch selected</span>
-                    <Link href="#pricing" className="text-blue-400 hover:text-blue-300 transition-colors">
+                    <Link href="/upgrade" className="text-blue-400 hover:text-blue-300 transition-colors">
                       Starter plan · upgrade for more →
                     </Link>
                   </div>

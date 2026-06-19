@@ -58,9 +58,17 @@ function TopBar({ orgName, repoName, repos, plan, onRepoChange, onAddRepo }: {
   const atLimit = !canAdd && plan === 'starter'
   const showDropdown = open && (repos.length > 1 || canAdd || atLimit)
 
+  const planBadge = plan === 'team'
+    ? { label: 'Team', cls: 'text-blue-300 border-blue-500/30 bg-blue-500/10' }
+    : plan === 'trialing'
+    ? { label: 'Trial', cls: 'text-amber-300 border-amber-500/30 bg-amber-500/10' }
+    : { label: 'Starter', cls: 'text-zinc-400 border-white/[0.1] bg-white/[0.04]' }
+
   return (
     <div className="h-16 shrink-0 border-b border-white/[0.06] flex items-center justify-between px-7 bg-[#08080b]">
-      <div />
+      <span className={`font-mono text-[9px] tracking-[0.18em] uppercase border rounded-full px-2.5 py-1 ${planBadge.cls}`}>
+        {planBadge.label}
+      </span>
       <div className="relative">
         <button
           onClick={() => setOpen(o => !o)}
