@@ -1,66 +1,39 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { useClerk, useUser, useAuth } from '@clerk/nextjs'
 import {
-  ChevronDown, LogOut, Key, Copy, Check, RefreshCw,
-  Loader2, AlertCircle, GitBranch, Eye, EyeOff,
+  LogOut, Key, Copy, Check, RefreshCw, Loader2, AlertCircle,
+  GitBranch, Eye, EyeOff, ChevronDown, Zap, ArrowUpRight,
 } from 'lucide-react'
 import Sidebar from '../sidebar'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
-type APIKey = {
-  id: string
-  repoId: string | null
-  label: string
-  lastUsedAt: string | null
-  createdAt: string
+type APIKey = { id: string; repoId: string | null; label: string; lastUsedAt: string | null; createdAt: string }
+
+function fmtDate(iso: string | null) {
+  if (!iso) return 'Never'
+  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-function TopBar() {
-  const { signOut } = useClerk()
-  const { user } = useUser()
-  const [orgName, setOrgName] = useState('')
-  const [repoName, setRepoName] = useState('')
-  useEffect(() => {
-    setOrgName(localStorage.getItem('keelOrgName') || 'your-org')
-    setRepoName(localStorage.getItem('keelRepoName') || 'your-repo')
-  }, [])
-  return (
-    <div className="h-16 shrink-0 border-b border-white/[0.06] flex items-center justify-between px-7 bg-[#08080b]">
-      <div />
-      <div className="flex items-center gap-2 font-mono text-[12px] bg-[#101016] border border-white/[0.08] rounded-lg px-3.5 py-1.5">
-        <span className="text-zinc-400">{orgName}</span>
-        <span className="text-zinc-700">/</span>
-        <span className="text-white font-medium">{repoName}</span>
-        <ChevronDown size={12} className="text-zinc-600 ml-1" />
-      </div>
-      <div className="flex items-center gap-4">
-        {user?.imageUrl
-          ? <img src={user.imageUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
-          : <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500" />}
-        <button onClick={() => signOut({ redirectUrl: '/' })}
-          className="flex items-center gap-1.5 font-mono text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors">
-          <LogOut size={13} />Sign out
-        </button>
-      </div>
-    </div>
-  )
-}
+function branchLimitForPlan(plan: string) { return plan === 'team' ? 3 : 1 }
+function repoLimitForPlan(plan: string)   { return plan === 'starter' ? 1 : 3 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
     <div className="rounded-2xl border border-white/[0.07] bg-[#0c0c11] overflow-hidden">
       <div className="px-6 py-4 border-b border-white/[0.06]">
         <h2 className="text-[13px] font-semibold tracking-tight">{title}</h2>
+        {description && <p className="text-[12px] text-zinc-500 mt-0.5">{description}</p>}
       </div>
       <div className="p-6">{children}</div>
     </div>
   )
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between py-2.5 border-b border-white/[0.04] last:border-0">
       <span className="font-mono text-[11px] text-zinc-500 uppercase tracking-[0.12em]">{label}</span>
@@ -70,108 +43,297 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 export default function SettingsPage() {
+  const router = useRouter()
   const { user } = useUser()
+  const { signOut } = useClerk()
   const { getToken } = useAuth()
 
-  const [plan, setPlan] = useState<'starter' | 'team' | 'trialing' | ''>('')
+  /* ── init state from /billing/plan ── */
+  const [loading, setLoading] = useState(true)
+  const [orgId, setOrgId] = useState('')
+  const [orgName, setOrgName] = useState('')
+  const [repoId, setRepoId] = useState('')
+  const [repoName, setRepoName] = useState('')
+  const [plan, setPlan] = useState('')
+  const [repoCount, setRepoCount] = useState(0)
+  const [token, setToken] = useState('')
+
+  /* ── repo settings ── */
+  const [defaultBranch, setDefaultBranch] = useState('')
+  const [watchedBranches, setWatchedBranches] = useState<string[]>([])
+  const [availableBranches, setAvailableBranches] = useState<string[]>([])
+  const [branchesLoading, setBranchesLoading] = useState(false)
+  const [savingBranches, setSavingBranches] = useState(false)
+  const [branchSaved, setBranchSaved] = useState(false)
+  const [branchError, setBranchError] = useState('')
+
+  /* ── api keys ── */
   const [keys, setKeys] = useState<APIKey[]>([])
-  const [keysLoading, setKeysLoading] = useState(true)
-  const [keysError, setKeysError] = useState(false)
+  const [keysLoading, setKeysLoading] = useState(false)
   const [newKey, setNewKey] = useState<string | null>(null)
-  const [generating, setGenerating] = useState(false)
-  const [copied, setCopied] = useState(false)
   const [showKey, setShowKey] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [generating, setGenerating] = useState(false)
 
-  const orgId = typeof window !== 'undefined' ? localStorage.getItem('keelOrgId') || '' : ''
-  const repoId = typeof window !== 'undefined' ? localStorage.getItem('keelRepoId') || '' : ''
-  const orgName = typeof window !== 'undefined' ? localStorage.getItem('keelOrgName') || '—' : '—'
-  const repoName = typeof window !== 'undefined' ? localStorage.getItem('keelRepoName') || '—' : '—'
+  /* ── danger zone ── */
+  const [confirmDisconnect, setConfirmDisconnect] = useState(false)
 
-  async function loadKeys() {
-    if (!orgId) return
-    setKeysLoading(true); setKeysError(false)
-    try {
-      const token = await getToken()
-      const r = await fetch(`${API_URL}/api-keys?orgId=${orgId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (!r.ok) throw new Error()
-      const d = await r.json()
-      setKeys(d.keys ?? [])
-    } catch { setKeysError(true) }
-    finally { setKeysLoading(false) }
+  /* ── load plan + repo settings ── */
+  useEffect(() => {
+    async function init() {
+      try {
+        const t = await getToken()
+        if (!t) { router.replace('/sign-in'); return }
+        setToken(t)
+
+        const planRes = await fetch(`${API_URL}/billing/plan`, { headers: { Authorization: `Bearer ${t}` } })
+        if (!planRes.ok) throw new Error()
+        const planData = await planRes.json()
+        if (!planData.onboarded) { router.replace('/onboarding'); return }
+
+        setOrgId(planData.orgId ?? '')
+        setOrgName(planData.orgName ?? '')
+        setRepoId(planData.repoId ?? '')
+        setRepoName(planData.repoName ?? '')
+        setPlan(planData.plan ?? '')
+        setRepoCount((planData.repos ?? []).length)
+
+        if (planData.repoId) {
+          const settingsRes = await fetch(`${API_URL}/repos/${planData.repoId}/settings`, {
+            headers: { Authorization: `Bearer ${t}` },
+          })
+          if (settingsRes.ok) {
+            const s = await settingsRes.json()
+            setDefaultBranch(s.defaultBranch ?? '')
+            setWatchedBranches(s.watchedBranches ?? [])
+
+            if (s.fullName) {
+              const [owner, repo] = s.fullName.split('/')
+              if (owner && repo) loadBranches(t, owner, repo)
+            }
+          }
+        }
+      } catch {
+        // stay on page, show partial data
+      } finally {
+        setLoading(false)
+      }
+    }
+    init()
+  }, [getToken, router])
+
+  /* ── load api keys when orgId is set ── */
+  useEffect(() => {
+    if (!orgId || !token) return
+    setKeysLoading(true)
+    fetch(`${API_URL}/api-keys?orgId=${orgId}`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => setKeys(d.keys ?? []))
+      .catch(() => {})
+      .finally(() => setKeysLoading(false))
+  }, [orgId, token])
+
+  function loadBranches(t: string, owner: string, repo: string) {
+    setBranchesLoading(true)
+    fetch(`${API_URL}/api/github/branches?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}`, {
+      headers: { Authorization: `Bearer ${t}` },
+    })
+      .then(r => r.json())
+      .then(d => setAvailableBranches((d.branches ?? []).map((b: { name: string }) => b.name)))
+      .catch(() => {})
+      .finally(() => setBranchesLoading(false))
   }
 
-  useEffect(() => { loadKeys() }, [orgId])
+  function toggleBranch(branch: string) {
+    const limit = branchLimitForPlan(plan)
+    setBranchError('')
+    setWatchedBranches(prev => {
+      if (prev.includes(branch)) {
+        if (prev.length === 1) { setBranchError('At least one branch must be watched.'); return prev }
+        return prev.filter(b => b !== branch)
+      }
+      if (prev.length >= limit) {
+        setBranchError(`Your ${plan} plan allows up to ${limit} watched branch${limit === 1 ? '' : 'es'}.`)
+        return prev
+      }
+      return [...prev, branch]
+    })
+  }
 
-  useEffect(() => {
-    async function fetchPlan() {
-      try {
-        const token = await getToken()
-        const res = await fetch(`${API_URL}/billing/plan`, { headers: { Authorization: `Bearer ${token}` } })
-        const data = await res.json()
-        if (data.plan) setPlan(data.plan)
-      } catch {}
+  async function saveBranches() {
+    if (!repoId || !token) return
+    setSavingBranches(true)
+    setBranchError('')
+    try {
+      const res = await fetch(`${API_URL}/repos/${repoId}/settings`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ watchedBranches }),
+      })
+      if (!res.ok) throw new Error()
+      setBranchSaved(true)
+      setTimeout(() => setBranchSaved(false), 2500)
+    } catch {
+      setBranchError('Failed to save. Try again.')
+    } finally {
+      setSavingBranches(false)
     }
-    fetchPlan()
-  }, [getToken])
+  }
 
   async function generateKey() {
-    if (!orgId || !repoId) return
+    if (!orgId || !repoId || !token) return
     setGenerating(true)
     try {
-      const token = await getToken()
       const res = await fetch(`${API_URL}/api-keys`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ orgId, repoId, label: 'default' }),
       })
       const data = await res.json()
-      if (data.key) { setNewKey(data.key); setShowKey(true); loadKeys() }
+      if (data.key) {
+        setNewKey(data.key)
+        setShowKey(true)
+        const r = await fetch(`${API_URL}/api-keys?orgId=${orgId}`, { headers: { Authorization: `Bearer ${token}` } })
+        const d = await r.json()
+        setKeys(d.keys ?? [])
+      }
     } catch {}
     finally { setGenerating(false) }
   }
 
-  function copyKey(key: string) {
-    navigator.clipboard.writeText(key)
+  function copyKey(k: string) {
+    navigator.clipboard.writeText(k)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
 
-  function fmtDate(iso: string | null) {
-    if (!iso) return 'Never'
-    return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#08080b]">
+        <Loader2 size={20} className="text-zinc-600 animate-spin" />
+      </div>
+    )
   }
+
+  const branchLimit = branchLimitForPlan(plan)
+  const repoLimit = repoLimitForPlan(plan)
+  const planLabel = plan === 'team' ? 'Team' : plan === 'trialing' ? 'Free trial' : 'Starter'
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#08080b] text-white">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <TopBar />
+        {/* TopBar */}
+        <div className="h-16 shrink-0 border-b border-white/[0.06] flex items-center justify-between px-7 bg-[#08080b]">
+          <div />
+          <div className="flex items-center gap-2 font-mono text-[12px] bg-[#101016] border border-white/[0.08] rounded-lg px-3.5 py-1.5">
+            <span className="text-zinc-400">{orgName}</span>
+            <span className="text-zinc-700">/</span>
+            <span className="text-white font-medium">{repoName}</span>
+            <ChevronDown size={12} className="text-zinc-600 ml-1" />
+          </div>
+          <div className="flex items-center gap-4">
+            {user?.imageUrl
+              ? <img src={user.imageUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
+              : <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500" />}
+            <button onClick={() => signOut({ redirectUrl: '/' })}
+              className="flex items-center gap-1.5 font-mono text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors">
+              <LogOut size={13} />Sign out
+            </button>
+          </div>
+        </div>
+
         <div className="flex-1 overflow-y-auto px-7 py-6">
           <div className="max-w-[720px] mx-auto flex flex-col gap-5">
 
             <div>
               <h1 className="text-[22px] font-black tracking-tight">Settings</h1>
-              <p className="text-[13px] text-zinc-500 mt-0.5">Manage your workspace, repo, and API keys</p>
+              <p className="text-[13px] text-zinc-500 mt-0.5">Manage your workspace, repo, and billing</p>
             </div>
 
-            {/* Workspace */}
-            <Section title="Workspace">
-              <Row label="Organisation" value={orgName} />
+            {/* Repo settings */}
+            <Section title="Repository" description="Configure which branches Keel watches for flaky tests.">
               <Row label="Repository" value={repoName} />
-              <Row label="Plan" value={plan === 'team' ? 'Team' : plan === 'trialing' ? 'Free trial' : plan === 'starter' ? 'Starter' : '—'} />
+              <Row label="Default branch" value={defaultBranch || '—'} />
+
+              <div className="mt-4 flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-[11px] text-zinc-500 uppercase tracking-[0.12em]">Watched branches</span>
+                  <span className="font-mono text-[10px] text-zinc-600">{watchedBranches.length}/{branchLimit} used</span>
+                </div>
+
+                {branchesLoading ? (
+                  <div className="flex items-center gap-2 text-zinc-600 text-[12px]">
+                    <Loader2 size={13} className="animate-spin" />Loading branches…
+                  </div>
+                ) : availableBranches.length === 0 ? (
+                  <p className="text-[12px] text-zinc-600">No branches found.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {availableBranches.map(b => {
+                      const active = watchedBranches.includes(b)
+                      return (
+                        <button key={b} onClick={() => toggleBranch(b)}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-mono text-[11px] border transition-colors ${
+                            active
+                              ? 'bg-blue-500/15 border-blue-500/30 text-blue-300'
+                              : 'bg-white/[0.03] border-white/[0.08] text-zinc-400 hover:border-white/[0.16] hover:text-zinc-300'
+                          }`}>
+                          {active && <Check size={10} />}
+                          <GitBranch size={10} />
+                          {b}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {branchError && (
+                  <p className="flex items-center gap-1.5 text-[12px] text-amber-400">
+                    <AlertCircle size={12} />{branchError}
+                  </p>
+                )}
+
+                <div className="flex items-center gap-3 mt-1">
+                  <button onClick={saveBranches} disabled={savingBranches || availableBranches.length === 0}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/[0.1] text-[12px] font-medium text-zinc-300 hover:bg-white/[0.05] disabled:opacity-40 transition-colors">
+                    {savingBranches
+                      ? <><Loader2 size={12} className="animate-spin" />Saving…</>
+                      : branchSaved
+                      ? <><Check size={12} className="text-emerald-400" />Saved</>
+                      : 'Save branches'}
+                  </button>
+                  {plan !== 'team' && (
+                    <a href="/upgrade" className="flex items-center gap-1 font-mono text-[11px] text-zinc-600 hover:text-zinc-400 transition-colors">
+                      <ArrowUpRight size={11} />Upgrade for more branches
+                    </a>
+                  )}
+                </div>
+              </div>
+            </Section>
+
+            {/* Plan & billing */}
+            <Section title="Plan & billing">
+              <Row label="Plan" value={
+                <span className={plan === 'team' ? 'text-blue-300' : 'text-zinc-300'}>{planLabel}</span>
+              } />
+              <Row label="Repositories" value={`${repoCount} / ${repoLimit}`} />
+              <Row label="Branches per repo" value={`${watchedBranches.length} / ${branchLimit}`} />
+
+              {plan !== 'team' && (
+                <div className="mt-4">
+                  <a href="/upgrade"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-semibold text-white transition-opacity hover:opacity-90"
+                    style={{ background: 'linear-gradient(120deg, rgba(59,130,246,0.9), rgba(139,92,246,0.9))' }}>
+                    <Zap size={12} />Upgrade to Team
+                  </a>
+                </div>
+              )}
             </Section>
 
             {/* API Keys */}
-            <Section title="API Keys">
+            <Section title="API Keys" description="Used by keel-action in your CI workflow to report test results.">
               <div id="api-keys" className="flex flex-col gap-4">
-                <p className="text-[12px] text-zinc-500 leading-relaxed">
-                  API keys are used by <span className="text-zinc-300 font-mono">keel-action</span> in your CI workflow to report test results.
-                  Generating a new key immediately invalidates the previous one.
-                </p>
-
-                {/* New key reveal */}
                 {newKey && (
                   <div className="rounded-xl bg-emerald-500/[0.06] border border-emerald-500/20 p-4 flex flex-col gap-3">
                     <div className="flex items-center gap-2 text-[12px] text-emerald-400 font-medium">
@@ -194,28 +356,20 @@ export default function SettingsPage() {
                   </div>
                 )}
 
-                {/* Keys list */}
                 {keysLoading ? (
                   <div className="flex items-center gap-2 text-zinc-600 text-[12px]">
                     <Loader2 size={13} className="animate-spin" />Loading keys…
                   </div>
-                ) : keysError ? (
-                  <div className="flex items-center gap-2 text-red-400 text-[12px]">
-                    <AlertCircle size={13} />Could not load keys.
-                    <button onClick={loadKeys} className="underline hover:no-underline">Retry</button>
-                  </div>
                 ) : keys.length === 0 ? (
-                  <div className="flex items-center gap-2 text-zinc-600 text-[12px]">
-                    <GitBranch size={13} />No keys found for this org.
-                  </div>
+                  <p className="text-[12px] text-zinc-600">No keys yet.</p>
                 ) : (
                   <div className="rounded-xl border border-white/[0.07] overflow-hidden">
                     <table className="w-full">
                       <thead>
                         <tr className="border-b border-white/[0.06]">
-                          <th className="px-4 py-3 text-left font-mono text-[10px] tracking-[0.14em] uppercase text-zinc-600 font-normal">Label</th>
-                          <th className="px-4 py-3 text-left font-mono text-[10px] tracking-[0.14em] uppercase text-zinc-600 font-normal">Created</th>
-                          <th className="px-4 py-3 text-left font-mono text-[10px] tracking-[0.14em] uppercase text-zinc-600 font-normal">Last used</th>
+                          {['Label', 'Created', 'Last used'].map(h => (
+                            <th key={h} className="px-4 py-3 text-left font-mono text-[10px] tracking-[0.14em] uppercase text-zinc-600 font-normal">{h}</th>
+                          ))}
                         </tr>
                       </thead>
                       <tbody>
@@ -245,19 +399,26 @@ export default function SettingsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-[13px] text-zinc-300 font-medium">Disconnect repository</p>
-                  <p className="text-[12px] text-zinc-600 mt-0.5">Re-run onboarding to connect a different repo.</p>
+                  <p className="text-[12px] text-zinc-600 mt-0.5">Removes this repo from Keel. You can re-onboard at any time.</p>
                 </div>
-                <button
-                  onClick={() => {
-                    localStorage.removeItem('keelOrgId')
-                    localStorage.removeItem('keelRepoId')
-                    localStorage.removeItem('keelOrgName')
-                    localStorage.removeItem('keelRepoName')
-                    window.location.href = '/onboarding'
-                  }}
-                  className="px-4 py-2 rounded-xl border border-red-500/30 text-[12px] text-red-400 hover:bg-red-500/10 transition-colors">
-                  Disconnect
-                </button>
+                {confirmDisconnect ? (
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[11px] text-zinc-500">Are you sure?</span>
+                    <button onClick={() => router.push('/onboarding')}
+                      className="px-3 py-1.5 rounded-lg border border-red-500/40 text-[12px] text-red-400 hover:bg-red-500/10 transition-colors">
+                      Yes, disconnect
+                    </button>
+                    <button onClick={() => setConfirmDisconnect(false)}
+                      className="px-3 py-1.5 rounded-lg border border-white/[0.08] text-[12px] text-zinc-400 hover:bg-white/[0.05] transition-colors">
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button onClick={() => setConfirmDisconnect(true)}
+                    className="px-4 py-2 rounded-xl border border-red-500/30 text-[12px] text-red-400 hover:bg-red-500/10 transition-colors">
+                    Disconnect
+                  </button>
+                )}
               </div>
             </Section>
 
