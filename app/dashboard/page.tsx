@@ -22,6 +22,8 @@ type TestRow = {
   estimatedCostUsd: number
   lastFailedAt: string | null
   hasAnalysis: boolean
+  quarantineStatus?: 'pending' | 'open' | null
+  quarantinePrUrl?: string | null
 }
 
 type RepoOption = { id: string; name: string }
@@ -483,7 +485,18 @@ function TestTable({ tests, query, loading, error, onRetry }: {
             return (
               <tr key={i} className={`border-t border-white/[0.04] hover:bg-white/[0.025] transition-colors ${tone.row}`}>
                 <td className="px-4 py-3">
-                  <Link href={`/dashboard/tests/${encodeURIComponent(t.testName)}?filePath=${encodeURIComponent(t.filePath)}`} className="font-mono text-[12px] text-zinc-200 hover:text-white transition-colors">{t.testName}</Link>
+                  <div className="flex items-center gap-2">
+                    <Link href={`/dashboard/tests/${encodeURIComponent(t.testName)}?filePath=${encodeURIComponent(t.filePath)}`} className="font-mono text-[12px] text-zinc-200 hover:text-white transition-colors">{t.testName}</Link>
+                    {t.quarantineStatus === 'pending' && (
+                      <span className="font-mono text-[9px] tracking-[0.12em] uppercase px-1.5 py-0.5 rounded-md bg-zinc-800 text-zinc-500 border border-zinc-700 shrink-0">PR opening…</span>
+                    )}
+                    {t.quarantineStatus === 'open' && t.quarantinePrUrl && (
+                      <a href={t.quarantinePrUrl} target="_blank" rel="noreferrer"
+                        className="font-mono text-[9px] tracking-[0.12em] uppercase px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/25 hover:border-amber-500/50 transition-colors shrink-0">
+                        Quarantined ↗
+                      </a>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-3 font-mono text-[11px] text-zinc-600 truncate max-w-[180px]">{t.filePath}</td>
                 <td className="px-4 py-3">
